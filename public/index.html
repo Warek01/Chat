@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,8 +12,9 @@
   <link rel="shortcut icon" href="./img/icon.ico" type="image/x-icon">
   <title>Chat app</title>
 </head>
+
 <body>
-  <header>
+  <header class="dark">
     <div class="logo">
       <p>
         Chat
@@ -24,5 +26,22 @@
       </button>
     </div>
   </header>
+  <div id="login-wrapper">
+    <div class="login dark">
+      <div class="user-img-wrapper">
+        <img src="./img/user-32.png" alt="Enter username">
+      </div>
+      <label for="username">
+        <p>
+          Enter username
+        </p>
+      </label>
+      <input type="text" placeholder="Username here" name="" id="username">
+      <button id="login" class="light">
+        Begin
+      </button>
+    </div>
+  </div>
 </body>
+
 </html>
