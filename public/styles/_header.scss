@@ -1,0 +1,48 @@
+header {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 60px;
+  justify-content: space-between;
+  color: #fff;
+  background-color: #24292E;
+
+  .logo {
+    position: relative;
+    display: flex;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+    margin-left: 30px;
+
+    p {
+      font-size: 2.2em;
+      margin: 0;
+    }
+  }
+
+  .user {
+    position: relative;
+    display: flex;
+    height: 100%;
+    align-items: center;
+    margin-right: 30px;
+
+    button#edit-user {
+      background-color: transparent;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+
+      &:focus {
+        outline: none;
+        border: none;
+      }
+
+      img {
+        height: 24px;
+        width: 24px;
+      }
+    }
+  }
+}

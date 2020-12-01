@@ -1,0 +1,1 @@
+// De pus ultimul utilizator logat in document.cookie
