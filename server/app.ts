@@ -4,6 +4,7 @@ import { createServer } from "http";
 import chalk from "chalk";
 import cors from "cors";
 import path from "path";
+import { Message } from "./models";
 
 const app: Application = express(),
   server = createServer(app),
