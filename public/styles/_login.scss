@@ -1,8 +1,8 @@
 #login-wrapper {
   position: absolute;
-  display: flex;
+  display: none;
+  // display: flex;
   top: 0;
-  z-index: 1;
   align-items: center;
   justify-content: center;
   width: 100%;
@@ -12,6 +12,7 @@
     position: relative;
     width: 350px;
     height: 400px;
+    z-index: 5;
 
     .user-img-wrapper {
       position: relative;

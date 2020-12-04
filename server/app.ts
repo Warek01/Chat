@@ -28,7 +28,8 @@ io.on("connection", socket => {
   console.log(chalk.hex("#95a5a6")("Client connected!"));
 
   socket.on("message", message => {
-    /*  */
+    console.log(message);
+    socket.broadcast.emit("message", message);
   });
 });
 
@@ -41,3 +42,4 @@ app.route("/messages").get((req: Request, res: Response, next: NextFunction): vo
 server.listen(8000, (): void => {
   console.log();
 });
+

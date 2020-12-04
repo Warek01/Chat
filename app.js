@@ -24,7 +24,8 @@ mongoose_1.connection.on("open", () => {
 io.on("connection", socket => {
     console.log(chalk_1.default.hex("#95a5a6")("Client connected!"));
     socket.on("message", message => {
-        /*  */
+        console.log(message);
+        socket.broadcast.emit("message", message);
     });
 });
 app.use(express_1.default.static(path_1.default.join(__dirname, "public")));

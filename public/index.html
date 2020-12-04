@@ -14,14 +14,6 @@
 </head>
 
 <body>
-  <div class="letters" style="display:none">
-    <span class="letter-s">
-      S
-    </span>
-    <span class="letter-w">
-      W
-    </span>
-  </div>
   <header class="dark">
     <div class="logo">
       <p>
@@ -31,6 +23,13 @@
     <div class="user">
       <button id="edit-user">
         <img src="./img/edit-user-32.png" alt="Edit user">
+      </button>
+    </div>
+    <div id="dropdown">
+      <p id="user">
+      </p>
+      <button id="change-username" onclick="logout()">
+        Log out
       </button>
     </div>
   </header>
@@ -50,6 +49,60 @@
       </button>
     </div>
   </div>
+
+  <div id="chat-wrapper">
+    <div class="chat-window dark">
+      <div id="chat-area">
+
+
+        <div class="message-wrap">
+          <div class="message">
+            <span class="content">
+              Lorem, ipsum.
+            </span>
+            <span class="sender">
+              Warek
+            </span>
+          </div>
+        </div>
+
+        <div class="message-wrap">
+          <div class="message">
+            <span class="content">
+              Lorem ipsum dolor sit amet consectetur.
+            </span>
+            <span class="sender">
+              Warek
+            </span>
+          </div>
+        </div>
+
+        <div class="message-wrap">
+          <div class="message sent">
+            <span class="sender">
+              Alex
+            </span>
+            <span class="content">
+              Lorem ipsum dolor sit.
+            </span>
+          </div>
+        </div>
+
+
+      </div>
+      <div class="chat-input-wrapper">
+        <input type="text" name="" placeholder="Message" id="chat-input">
+        <button id="sendBtn" onclick="sendMessage()" class="dark">
+          Send
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="./scripts/jquery.js"></script>
+  <script src="./scripts/Message.js"></script>
+  <script src="./scripts/main.js"></script>
 </body>
 
 </html>
