@@ -9,8 +9,14 @@ export const Message = model("message", new Schema({
     type: String,
     required: true
   },
-  date: {
+  timestamp: {
     type: Number,
     required: true
   }
 }), "messages");
+
+export interface MessageBody {
+  content: string,
+  sender: string,
+  timestamp: number
+}

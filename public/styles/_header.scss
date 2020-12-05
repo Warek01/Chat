@@ -55,11 +55,12 @@ header {
     border-radius: 20px;
     z-index: 100;
     background-color: #fff;
-    box-shadow: 4px 7px 4px #bababa,
-      4px 7px 12px #bababa;
+    box-shadow: 0 0 4px #bababa,
+      0 0 12px #bababa;
 
       @media screen and (max-width: 1501px) {
-        box-shadow: 10px -2px 7px #bababa;
+      background-color: #fafafa;
+        box-shadow: none;
       }
 
     &::before {

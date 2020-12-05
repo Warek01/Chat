@@ -11,7 +11,7 @@ exports.Message = mongoose_1.model("message", new mongoose_1.Schema({
         type: String,
         required: true
     },
-    date: {
+    timestamp: {
         type: Number,
         required: true
     }

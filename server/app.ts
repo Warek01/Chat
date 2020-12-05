@@ -4,7 +4,7 @@ import { createServer } from "http";
 import chalk from "chalk";
 import cors from "cors";
 import path from "path";
-import { Message } from "./models";
+import { Message, MessageBody } from "./models";
 
 const app: Application = express(),
   server = createServer(app),
@@ -14,32 +14,64 @@ const app: Application = express(),
 connect("mongodb://localhost:27017/Chat", {
   useFindAndModify: true,
   useNewUrlParser: true,
-  useUnifiedTopology: true
+  useUnifiedTopology: true,
+  numberOfRetries: 1
 });
 
-connection.on("open", (): void => {
-  console.log(chalk.hex("#2ecc71")("Database connected!"));
-}).on("close", (): void => {
-  console.log(chalk.hex("#1a9c74")("Database disconnected!"));
-});
+connection
+  .on("open", (): void => {
+    console.log(chalk.hex("#2ecc71")("Database connected!"));
+  })
+  .on("close", (): void => {
+    console.log(chalk.hex("#1a9c74")("Database disconnected!"));
+  })
+  .on("error", (err) => {
+    console.log(chalk.hex("#e84118")("Database Error: "), err);
+  });
 
 // Socket.io (websocket) connection
-io.on("connection", socket => {
+io.on("connection", (socket: any): void => {
   console.log(chalk.hex("#95a5a6")("Client connected!"));
 
-  socket.on("message", message => {
+  socket.on("message", (message: MessageBody): void => {
     console.log(message);
     socket.broadcast.emit("message", message);
+
+    new Message({
+      content: message.content,
+      sender: message.sender,
+      timestamp: message.timestamp
+    }).save();
+  });
+
+  socket.on("user disconnected", (user: string): void => {
+    io.sockets.emit("user disconnected", user);
+  });
+
+  socket.on("user connected", (user: string): void => {
+    io.sockets.emit("user connected", user);
   });
 });
 
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(__dirname, "public")), cors());
 
-app.route("/messages").get((req: Request, res: Response, next: NextFunction): void => {
+app.get(
+  "/messages",
+  (req: Request, res: Response, next: NextFunction): void => {}
+);
 
+app.get("/init", async (req: Request, res: Response, next: NextFunction) => {
+  let tasks = await Message.find({});
+  res.json(JSON.stringify(tasks));
 });
 
-server.listen(8000, (): void => {
-  console.log();
+app.get("/clear", (req: Request, res: Response, next: NextFunction) => {
+  try {
+    connection.dropCollection("messages");
+  } catch {
+    return res.sendStatus(500);
+  }
+  res.sendStatus(200);
 });
 
+server.listen(5550);
