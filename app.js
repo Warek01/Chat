@@ -1,4 +1,23 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -9,7 +28,7 @@ const http_1 = require("http");
 const chalk_1 = __importDefault(require("chalk"));
 const cors_1 = __importDefault(require("cors"));
 const path_1 = __importDefault(require("path"));
-const models_1 = require("./models");
+const models = __importStar(require("./models"));
 const app = express_1.default(), server = http_1.createServer(app), io = require("socket.io")(server);
 // Open mongodb connection
 mongoose_1.connect("mongodb://localhost:27017/Chat", {
@@ -34,25 +53,40 @@ io.on("connection", (socket) => {
     socket.on("message", (message) => {
         console.log(message);
         socket.broadcast.emit("message", message);
-        new models_1.Message({
+        new models.Message({
             content: message.content,
             sender: message.sender,
             timestamp: message.timestamp
         }).save();
     });
-    socket.on("user disconnected", (user) => {
-        io.sockets.emit("user disconnected", user);
+    socket.on("user disconnected", (userName) => {
+        io.sockets.emit("user disconnected", userName);
+        new models.Message({
+            sender: userName,
+            type: "disconnected"
+        }).save();
     });
-    socket.on("user connected", (user) => {
-        io.sockets.emit("user connected", user);
+    socket.on("user connected", (userName) => {
+        io.sockets.emit("user connected", userName);
+        new models.Message({
+            sender: userName,
+            type: "connected"
+        }).save();
     });
 });
 app.use(express_1.default.static(path_1.default.join(__dirname, "public")), cors_1.default());
 app.get("/messages", (req, res, next) => { });
+// Initialization process (message history) sending to each new connected user
 app.get("/init", async (req, res, next) => {
-    let tasks = await models_1.Message.find({});
-    res.json(JSON.stringify(tasks));
+    try {
+        const messages = await models.Message.find({});
+        res.json(JSON.stringify(messages));
+    }
+    catch {
+        return res.sendStatus(500);
+    }
 });
+// Clear db history
 app.get("/clear", (req, res, next) => {
     try {
         mongoose_1.connection.dropCollection("messages");

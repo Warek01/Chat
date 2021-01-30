@@ -44,19 +44,19 @@ header {
       }
     }
   }
-
+  
   #dropdown {
     position: absolute;
     display: none;
     right: 30px;
-    top: 50px;
+    top: 60px;
     height: 150px;
     width: 150px;
     border-radius: 20px;
     z-index: 100;
     background-color: #fff;
-    box-shadow: 0 0 4px #bababa,
-      0 0 12px #bababa;
+    box-shadow: 4px 4px 4px rgba(#bababa, .35),
+      4px 4px 12px rgba(#bababa, .35);
 
       @media screen and (max-width: 1501px) {
       background-color: #fafafa;

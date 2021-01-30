@@ -5,7 +5,7 @@ const mongoose_1 = require("mongoose");
 exports.Message = mongoose_1.model("message", new mongoose_1.Schema({
     content: {
         type: String,
-        required: true
+        required: false
     },
     sender: {
         type: String,
@@ -13,6 +13,11 @@ exports.Message = mongoose_1.model("message", new mongoose_1.Schema({
     },
     timestamp: {
         type: Number,
+        required: false
+    },
+    type: {
+        type: String,
+        default: "message",
         required: true
     }
 }), "messages");

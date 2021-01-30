@@ -3,7 +3,7 @@ import { model, Schema } from "mongoose";
 export const Message = model("message", new Schema({
   content: {
     type: String,
-    required: true
+    required: false
   },
   sender: {
     type: String,
@@ -11,6 +11,11 @@ export const Message = model("message", new Schema({
   },
   timestamp: {
     type: Number,
+    required: false
+  },
+  type: {
+    type: String,
+    default: "message",
     required: true
   }
 }), "messages");

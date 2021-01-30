@@ -14,6 +14,7 @@
 </head>
 
 <body>
+
   <header class="dark">
     <div class="logo">
       <p>
@@ -33,6 +34,7 @@
       </button>
     </div>
   </header>
+
   <div id="login-wrapper">
     <div class="login dark">
       <div class="user-img-wrapper">
@@ -44,6 +46,10 @@
         </p>
       </label>
       <input type="text" placeholder="Username here" name="" id="username">
+      <p class="last-user">
+        Last user connected: <br>
+        <span id="last-user-name" class="text-button"></span>
+      </p>
       <button id="login" class="light">
         Begin
       </button>
@@ -64,7 +70,6 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="./scripts/jquery.js"></script>
-  <script src="./scripts/Message.js"></script>
   <script src="./scripts/main.js"></script>
 </body>
 
