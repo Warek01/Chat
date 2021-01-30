@@ -1,14 +1,16 @@
 "use strict";
-const login_form = $("#login-wrapper"), login_input = $("#username"), chat_form = $("#chat-wrapper"), chat_input = $("#chat-input"), chat_area = $("#chat-area"), dropdown = $("#dropdown"), user_field = $("#user"), edit_user_btn = $("#edit-user"), logout_btn = $("#change-username");
 const socket = io();
-let currentUser;
-let previousUser;
-let changeUserDropdownIsActive = false;
+const login_form = $("#login-wrapper"), login_input = $("#username"), chat_form = $("#chat-wrapper"), chat_input = $("#chat-input"), chat_area = $("#chat-area"), dropdown = $("#dropdown"), user_field = $("#user"), edit_user_btn = $("#edit-user"), logout_btn = $("#change-username"), advanced_tab_btn = $("#toggle-advanced-tab"), advanced_tab = $("#advanced-tab");
+let currentUser, previousUser, buttonsActive = {
+    changeUserDropdown: false,
+    advancedTab: false
+};
 $(document).ready(function (event) {
     if (document.cookie.match(/username/)) {
         currentUser = decodeURIComponent((document.cookie.match(/(?<=username=)\w+/) || [""])[0]);
         user_field.text(currentUser);
         init();
+        edit_user_btn.css("pointer-events", "all");
         socket.emit("user connected", currentUser);
     }
     else {
@@ -31,7 +33,7 @@ $(document).ready(function (event) {
     }
 });
 edit_user_btn.click(function (event) {
-    if (!changeUserDropdownIsActive) {
+    if (!buttonsActive.changeUserDropdown) {
         dropdown.show();
         $("body").children().not("header").css({
             "pointer-events": "none",
@@ -45,7 +47,18 @@ edit_user_btn.click(function (event) {
             filter: "blur(0)"
         });
     }
-    changeUserDropdownIsActive = !changeUserDropdownIsActive;
+    buttonsActive.changeUserDropdown = !buttonsActive.changeUserDropdown;
+});
+advanced_tab_btn.click(function (event) {
+    if (advanced_tab.css("display") === "none") {
+        advanced_tab.show();
+        dropdown.css("height", 180);
+    }
+    else {
+        advanced_tab.hide();
+        dropdown.css("height", 150);
+    }
+    buttonsActive.advancedTab = !buttonsActive.advancedTab;
 });
 login_input.keypress(function (event) {
     switch (event.key) {
@@ -78,17 +91,23 @@ $(window).on("unload", function (event) {
 // Global listeners
 $(window).on({
     click: function (event) {
-        if (changeUserDropdownIsActive &&
+        if (buttonsActive.advancedTab &&
+            $(event.target).attr("id") !== advanced_tab.attr("id") &&
+            $(event.target).attr("id") !== advanced_tab_btn.attr("id"))
+            advanced_tab_btn.trigger("click");
+        if (buttonsActive.changeUserDropdown &&
             $(event.target).attr("id") !== "dropdown" &&
             $(event.target).parents().attr("id") !== "dropdown" &&
             $(event.target).attr("id") !== "edit-user" &&
-            $(event.target).parent().attr("id") !== "edit-user") {
-            dropdown.hide();
-            $("body").children().not("header").css({
-                "pointer-events": "all",
-                filter: "blur(0)"
-            });
-            changeUserDropdownIsActive = false;
+            $(event.target).parent().attr("id") !== "edit-user")
+            edit_user_btn.trigger("click");
+    },
+    contextmenu: function (event) {
+        console.log($(event.target).hasClass("message"));
+        if ($(event.target).hasClass("message") ||
+            $(event.target).parents().hasClass("message")) {
+            event.preventDefault();
+            new ContextMenu(event.target);
         }
     }
 });
@@ -109,6 +128,7 @@ function login() {
         login_input.val("");
         login_form.hide();
         chat_form.show();
+        edit_user_btn.css("pointer-events", "all");
         $("#login").off("click", login);
     }
     for (let message of $(".message"))
@@ -126,12 +146,13 @@ function logout() {
     chat_form.hide();
     login_form.css("display", "flex");
     $("#login").click(login);
+    edit_user_btn.css("pointer-events", "none");
     dropdown.hide();
     $("body").children().not("header").css({
         "pointer-events": "all",
         filter: "blur(0)"
     });
-    changeUserDropdownIsActive = false;
+    buttonsActive.changeUserDropdown = false;
     for (let message of $(".message.sent")) {
         $(message).removeClass("sent").find(".sender").appendTo(message);
     }
@@ -183,7 +204,7 @@ function createMessage(message) {
     });
     if (validateUrl(message.content)) {
         content = $("<a>", {
-            html: message.content,
+            html: message.content.trim(),
             class: "content",
             href: message.content,
             target: "_blank"
@@ -191,7 +212,7 @@ function createMessage(message) {
     }
     else {
         content = $("<span>", {
-            html: message.content,
+            html: message.content.trim(),
             class: "content"
         });
     }
@@ -211,4 +232,13 @@ function clearMessagehistory(clearFromDb = true) {
             .then((res) => res.text)
             .then((res) => console.log(res));
     chat_area.children().remove();
+}
+// Custom context menu
+class ContextMenu {
+    constructor(element) {
+        this.element = $(element);
+    }
+    copyText() { }
+    openLink() { }
+    openLinkNewTab() { }
 }

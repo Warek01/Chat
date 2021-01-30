@@ -1,6 +1,8 @@
 declare const io: Function;
+const socket = io();
 
-const login_form: JQuery = $("#login-wrapper"),
+const 
+  login_form: JQuery = $("#login-wrapper"),
   login_input: JQuery = $("#username"),
   chat_form: JQuery = $("#chat-wrapper"),
   chat_input: JQuery = $("#chat-input"),
@@ -8,13 +10,19 @@ const login_form: JQuery = $("#login-wrapper"),
   dropdown: JQuery = $("#dropdown"),
   user_field: JQuery = $("#user"),
   edit_user_btn: JQuery = $("#edit-user"),
-  logout_btn: JQuery = $("#change-username");
+  logout_btn: JQuery = $("#change-username"),
+  advanced_tab_btn: JQuery = $("#toggle-advanced-tab"),
+  advanced_tab: JQuery = $("#advanced-tab");
 
-const socket = io();
-
-let currentUser: string | null;
-let previousUser: string | null;
-let changeUserDropdownIsActive: boolean = false;
+let currentUser: string | null,
+  previousUser: string | null,
+  buttonsActive: {
+  changeUserDropdown: boolean,
+  advancedTab: boolean
+} = {
+  changeUserDropdown: false,
+  advancedTab: false
+};
 
 $(document).ready(function (event): void {
   if (document.cookie.match(/username/)) {
@@ -25,6 +33,7 @@ $(document).ready(function (event): void {
 
     user_field.text(currentUser);
     init();
+    edit_user_btn.css("pointer-events", "all");
 
     socket.emit("user connected", currentUser);
   } else {
@@ -50,7 +59,7 @@ $(document).ready(function (event): void {
 });
 
 edit_user_btn.click(function (event): void {
-  if (!changeUserDropdownIsActive) {
+  if (!buttonsActive.changeUserDropdown) {
     dropdown.show();
     $("body").children().not("header").css({
       "pointer-events": "none",
@@ -63,7 +72,19 @@ edit_user_btn.click(function (event): void {
       filter: "blur(0)"
     });
   }
-  changeUserDropdownIsActive = !changeUserDropdownIsActive;
+  buttonsActive.changeUserDropdown = !buttonsActive.changeUserDropdown;
+});
+
+advanced_tab_btn.click(function(event): void {
+  if (advanced_tab.css("display") === "none") {
+    advanced_tab.show();
+    dropdown.css("height", 180);
+  }
+  else {
+    advanced_tab.hide();
+    dropdown.css("height", 150);
+  }
+  buttonsActive.advancedTab = !buttonsActive.advancedTab;
 });
 
 login_input.keypress(function (event): void {
@@ -98,20 +119,29 @@ $(window).on("unload", function (event): void {
 
 // Global listeners
 $(window).on({
-  click: function (event) {
+  click: function (event): void {
     if (
-      changeUserDropdownIsActive &&
+      buttonsActive.advancedTab && 
+      $(event.target).attr("id") !== advanced_tab.attr("id") &&
+      $(event.target).attr("id") !== advanced_tab_btn.attr("id")
+    ) advanced_tab_btn.trigger("click");
+
+    if (
+      buttonsActive.changeUserDropdown &&
       $(event.target).attr("id") !== "dropdown" &&
       $(event.target).parents().attr("id") !== "dropdown" &&
       $(event.target).attr("id") !== "edit-user" &&
       $(event.target).parent().attr("id") !== "edit-user"
-    ) {
-      dropdown.hide();
-      $("body").children().not("header").css({
-        "pointer-events": "all",
-        filter: "blur(0)"
-      });
-      changeUserDropdownIsActive = false;
+    ) edit_user_btn.trigger("click");
+  },
+  contextmenu: function (event): void {
+    console.log($(event.target).hasClass("message"))
+    if (
+      $(event.target).hasClass("message") ||
+      $(event.target).parents().hasClass("message")
+      ) {
+      event.preventDefault();
+      new ContextMenu(event.target);
     }
   }
 });
@@ -139,6 +169,7 @@ function login(): void {
 
     login_form.hide();
     chat_form.show();
+    edit_user_btn.css("pointer-events", "all");
     $("#login").off("click", login);
   }
   for (let message of $(".message"))
@@ -161,12 +192,13 @@ function logout(): void {
   login_form.css("display", "flex");
   $("#login").click(login);
 
+  edit_user_btn.css("pointer-events", "none");
   dropdown.hide();
   $("body").children().not("header").css({
     "pointer-events": "all",
     filter: "blur(0)"
   });
-  changeUserDropdownIsActive = false;
+  buttonsActive.changeUserDropdown = false;
 
   for (let message of $(".message.sent")) {
     $(message).removeClass("sent").find(".sender").appendTo(message);
@@ -243,14 +275,14 @@ function createMessage(message: MessageBody): void {
 
   if(validateUrl(message.content)) {
     content = $("<a>", {
-      html: message.content,
+      html: message.content.trim(),
       class: "content",
       href: message.content,
       target: "_blank"
     })
   } else {
     content = $("<span>", {
-      html: message.content,
+      html: message.content.trim(),
       class: "content"
     })
   }
@@ -274,3 +306,15 @@ function clearMessagehistory(clearFromDb: boolean = true): void {
   chat_area.children().remove();
 }
 
+// Custom context menu
+class ContextMenu {
+  private element: JQuery;
+
+  constructor(element: JQuery | HTMLElement | any) {
+    this.element = $(element);
+  }
+
+  copyText(): void {}
+  openLink(): void {}
+  openLinkNewTab(): void {}
+}

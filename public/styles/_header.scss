@@ -32,6 +32,7 @@ header {
       border: none;
       border-radius: 10px;
       cursor: pointer;
+      pointer-events: none;
 
       &:focus {
         outline: none;
@@ -87,10 +88,18 @@ header {
     }
     
     button {
+      display: flex;
       margin: 0 auto;
       width: 80px;
       height: 30px;
       margin-left: 35px;
+      margin-top: 10px;
+      justify-content: center;
+      align-items: center;
+
+      &:focus {
+        border: 1px solid rgba(#333, 1);
+      }
     }
   }
 }

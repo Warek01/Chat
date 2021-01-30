@@ -27,11 +27,18 @@
       </button>
     </div>
     <div id="dropdown">
-      <p id="user">
-      </p>
+      <p id="user"></p>
       <button id="change-username" onclick="logout()">
         Log out
       </button>
+      <button id="toggle-advanced-tab">
+        Advanced
+      </button>
+      <div id="advanced-tab" style="display: none;">
+        <button class="clear-history-button" onclick="clearMessagehistory()">
+          Clear history
+        </button>
+      </div>
     </div>
   </header>
 
