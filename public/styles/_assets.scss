@@ -1,6 +1,10 @@
 $main-black: #24292e;
 $lighted-main-black: lighten($main-black, 25);
 
+[contenteditable="true"]:focus {
+  outline: none;
+}
+
 .hidden {
   display: none;
   pointer-events: none;
@@ -46,5 +50,50 @@ button {
 
   &:hover {
     text-decoration: underline;
+  }
+}
+
+.context-menu {
+  position: absolute;
+  display: flex;
+  width: 300px;
+  height: 30px;
+  border-radius: 5px;
+  justify-content: space-evenly;
+  align-items: center;
+  background-color: #b2bec3;
+  font-size: 10px;
+  cursor: default;
+  z-index: 10;
+
+  &::after {
+    content: "";
+    position: absolute;
+    bottom: -5px;
+    width: 10px;
+    height: 10px;
+    transform: rotateZ(45deg);
+    left: 10px;
+    background-color: #b2bec3;
+  }
+
+  &>span {
+    position: relative;
+    display: inline-flex;
+  }
+  
+  &:not(.button-disabled) {
+    cursor: pointer;
+
+    &:hover {
+      // text-decoration: underline;
+      z-index: 100;
+    }
+  }
+
+  .button-disabled {
+    color: #aaa;
+    cursor: default;
+    pointer-events: none;
   }
 }

@@ -10,6 +10,8 @@ const app: Application = express(),
   server = createServer(app),
   io = require("socket.io")(server);
 
+require("mongoose").Promise = global.Promise;
+
 // Open mongodb connection
 connect("mongodb://localhost:27017/Chat", {
   useFindAndModify: true,
@@ -25,11 +27,12 @@ connection
   .on("close", (): void => {
     console.log(chalk.hex("#1a9c74")("Database disconnected!"));
   })
-  .on("error", (err) => {
+  .on("error", err => {
     console.log(chalk.hex("#e84118")("Database Error: "), err);
   });
 
 // Socket.io (websocket) connection
+
 io.on("connection", (socket: any): void => {
   console.log(chalk.hex("#95a5a6")("Client connected!"));
 
@@ -41,7 +44,11 @@ io.on("connection", (socket: any): void => {
       content: message.content,
       sender: message.sender,
       timestamp: message.timestamp
-    }).save();
+    })
+      .save()
+      .catch(function (err): void {
+        console.log(chalk.hex("#e84118")(err), "Message saved");
+      });
   });
 
   socket.on("user disconnected", (userName: string): void => {
@@ -49,7 +56,11 @@ io.on("connection", (socket: any): void => {
     new models.Message({
       sender: userName,
       type: "disconnected"
-    }).save();
+    })
+      .save()
+      .catch(function (err): void {
+        console.log(chalk.hex("#e84118")(err), "User disconnected");
+      });
   });
 
   socket.on("user connected", (userName: string): void => {
@@ -57,7 +68,15 @@ io.on("connection", (socket: any): void => {
     new models.Message({
       sender: userName,
       type: "connected"
-    }).save();
+    })
+      .save()
+      .catch(function (err): void {
+        console.log(chalk.hex("#e84118")(err), "User connected");
+      });
+  });
+
+  socket.on("clear history", () => {
+    socket.broadcast.emit("clear history");
   });
 });
 

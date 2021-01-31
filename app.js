@@ -30,6 +30,7 @@ const cors_1 = __importDefault(require("cors"));
 const path_1 = __importDefault(require("path"));
 const models = __importStar(require("./models"));
 const app = express_1.default(), server = http_1.createServer(app), io = require("socket.io")(server);
+require("mongoose").Promise = global.Promise;
 // Open mongodb connection
 mongoose_1.connect("mongodb://localhost:27017/Chat", {
     useFindAndModify: true,
@@ -44,7 +45,7 @@ mongoose_1.connection
     .on("close", () => {
     console.log(chalk_1.default.hex("#1a9c74")("Database disconnected!"));
 })
-    .on("error", (err) => {
+    .on("error", err => {
     console.log(chalk_1.default.hex("#e84118")("Database Error: "), err);
 });
 // Socket.io (websocket) connection
@@ -57,21 +58,36 @@ io.on("connection", (socket) => {
             content: message.content,
             sender: message.sender,
             timestamp: message.timestamp
-        }).save();
+        })
+            .save()
+            .catch(function (err) {
+            console.log(chalk_1.default.hex("#e84118")(err), "Message saved");
+        });
     });
     socket.on("user disconnected", (userName) => {
         io.sockets.emit("user disconnected", userName);
         new models.Message({
             sender: userName,
             type: "disconnected"
-        }).save();
+        })
+            .save()
+            .catch(function (err) {
+            console.log(chalk_1.default.hex("#e84118")(err), "User disconnected");
+        });
     });
     socket.on("user connected", (userName) => {
         io.sockets.emit("user connected", userName);
         new models.Message({
             sender: userName,
             type: "connected"
-        }).save();
+        })
+            .save()
+            .catch(function (err) {
+            console.log(chalk_1.default.hex("#e84118")(err), "User connected");
+        });
+    });
+    socket.on("clear history", () => {
+        socket.broadcast.emit("clear history");
     });
 });
 app.use(express_1.default.static(path_1.default.join(__dirname, "public")), cors_1.default());

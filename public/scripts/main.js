@@ -1,9 +1,10 @@
 "use strict";
 const socket = io();
 const login_form = $("#login-wrapper"), login_input = $("#username"), chat_form = $("#chat-wrapper"), chat_input = $("#chat-input"), chat_area = $("#chat-area"), dropdown = $("#dropdown"), user_field = $("#user"), edit_user_btn = $("#edit-user"), logout_btn = $("#change-username"), advanced_tab_btn = $("#toggle-advanced-tab"), advanced_tab = $("#advanced-tab");
-let currentUser, previousUser, buttonsActive = {
+let currentUser, previousUser, contextMenu, elementsActive = {
     changeUserDropdown: false,
-    advancedTab: false
+    advancedTab: false,
+    userContextMenu: false
 };
 $(document).ready(function (event) {
     if (document.cookie.match(/username/)) {
@@ -33,7 +34,7 @@ $(document).ready(function (event) {
     }
 });
 edit_user_btn.click(function (event) {
-    if (!buttonsActive.changeUserDropdown) {
+    if (!elementsActive.changeUserDropdown) {
         dropdown.show();
         $("body").children().not("header").css({
             "pointer-events": "none",
@@ -47,7 +48,7 @@ edit_user_btn.click(function (event) {
             filter: "blur(0)"
         });
     }
-    buttonsActive.changeUserDropdown = !buttonsActive.changeUserDropdown;
+    elementsActive.changeUserDropdown = !elementsActive.changeUserDropdown;
 });
 advanced_tab_btn.click(function (event) {
     if (advanced_tab.css("display") === "none") {
@@ -58,7 +59,7 @@ advanced_tab_btn.click(function (event) {
         advanced_tab.hide();
         dropdown.css("height", 150);
     }
-    buttonsActive.advancedTab = !buttonsActive.advancedTab;
+    elementsActive.advancedTab = !elementsActive.advancedTab;
 });
 login_input.keypress(function (event) {
     switch (event.key) {
@@ -72,6 +73,7 @@ chat_input.keypress(function (event) {
     if (event.key === "Enter")
         $("#sendBtn").trigger("click");
 });
+// Global listeners
 socket
     .on("message", (message) => {
     createMessage(message);
@@ -83,19 +85,26 @@ socket
     createConnectionMessage(user, true);
 })
     .on("error", (err) => {
+    console.log(currentUser);
     console.warn("Socket Error: ", err);
+})
+    .on("clear history", () => {
+    clearMessagehistory(false);
 });
-$(window).on("unload", function (event) {
-    socket.emit("user disconnected", currentUser);
-});
-// Global listeners
 $(window).on({
     click: function (event) {
-        if (buttonsActive.advancedTab &&
+        if (elementsActive.userContextMenu &&
+            !$(event.target).hasClass("context-menu")) {
+            contextMenu?.disable();
+            return;
+        }
+        if (elementsActive.advancedTab &&
+            !elementsActive.userContextMenu &&
             $(event.target).attr("id") !== advanced_tab.attr("id") &&
             $(event.target).attr("id") !== advanced_tab_btn.attr("id"))
             advanced_tab_btn.trigger("click");
-        if (buttonsActive.changeUserDropdown &&
+        if (elementsActive.changeUserDropdown &&
+            !elementsActive.userContextMenu &&
             $(event.target).attr("id") !== "dropdown" &&
             $(event.target).parents().attr("id") !== "dropdown" &&
             $(event.target).attr("id") !== "edit-user" &&
@@ -103,14 +112,19 @@ $(window).on({
             edit_user_btn.trigger("click");
     },
     contextmenu: function (event) {
-        console.log($(event.target).hasClass("message"));
-        if ($(event.target).hasClass("message") ||
-            $(event.target).parents().hasClass("message")) {
+        if (($(event.target).hasClass("message") ||
+            $(event.target).parents().hasClass("message")) &&
+            !event.shiftKey) {
             event.preventDefault();
-            new ContextMenu(event.target);
+            contextMenu?.disable();
+            contextMenu = new ContextMenu(event);
         }
+    },
+    unload: function (event) {
+        socket.emit("user disconnected", currentUser);
     }
 });
+// Functions
 function removeCookie(cookie) {
     document.cookie = `${encodeURIComponent(cookie)}=0; max-age=0`;
     return cookie;
@@ -138,11 +152,11 @@ function login() {
 }
 function logout() {
     console.assert(currentUser !== null, "User in null");
+    socket.emit("user disconnected", currentUser);
     previousUser = currentUser;
     currentUser = null;
     setCookie("previousUser", previousUser);
     removeCookie("username");
-    socket.emit("user disconnected", currentUser);
     chat_form.hide();
     login_form.css("display", "flex");
     $("#login").click(login);
@@ -152,7 +166,7 @@ function logout() {
         "pointer-events": "all",
         filter: "blur(0)"
     });
-    buttonsActive.changeUserDropdown = false;
+    elementsActive.changeUserDropdown = false;
     for (let message of $(".message.sent")) {
         $(message).removeClass("sent").find(".sender").appendTo(message);
     }
@@ -162,7 +176,7 @@ function sendMessage() {
         const body = {
             content: chat_input.val(),
             sender: currentUser,
-            timestamp: Date.now(),
+            timestamp: Date.now()
         };
         chat_input.val("");
         socket.emit("message", body);
@@ -189,13 +203,12 @@ function validateUrl(value) {
     return /^(?:(?:(?:https?|ftp):)?\/\/)(?:\S+(?::\S*)?@)?(?:(?!(?:10|127)(?:\.\d{1,3}){3})(?!(?:169\.254|192\.168)(?:\.\d{1,3}){2})(?!172\.(?:1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2})(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])(?:\.(?:1?\d{1,2}|2[0-4]\d|25[0-5])){2}(?:\.(?:[1-9]\d?|1\d\d|2[0-4]\d|25[0-4]))|(?:(?:[a-z\u00a1-\uffff0-9]-*)*[a-z\u00a1-\uffff0-9]+)(?:\.(?:[a-z\u00a1-\uffff0-9]-*)*[a-z\u00a1-\uffff0-9]+)*(?:\.(?:[a-z\u00a1-\uffff]{2,})))(?::\d{2,5})?(?:[/?#]\S*)?$/i.test(value);
 }
 function createConnectionMessage(name, dissconected = false) {
-    if (currentUser === name)
-        return;
     let container = $("<div>", { class: "connection" }), content = $("<p>", {
         html: `${name} ${dissconected ? "left" : "joined"} chat`,
         class: "username"
     });
-    container.append(content).appendTo(chat_area);
+    if (currentUser !== name)
+        container.append(content).appendTo(chat_area);
 }
 function createMessage(message) {
     let container = $("<div>", { class: "message-wrap" }), _message = $("<div>", { class: "message" }), content, sender = $("<span>", {
@@ -227,18 +240,75 @@ function createMessage(message) {
     chat_area.append(container);
 }
 function clearMessagehistory(clearFromDb = true) {
-    if (clearFromDb)
+    if (clearFromDb) {
         fetch("/clear")
-            .then((res) => res.text)
-            .then((res) => console.log(res));
+            .then(res => res.text)
+            .then(res => console.log(res));
+        socket.emit("clear history");
+    }
     chat_area.children().remove();
 }
 // Custom context menu
 class ContextMenu {
-    constructor(element) {
-        this.element = $(element);
+    constructor(event) {
+        this.posX = event.clientX;
+        this.posY = event.clientY;
+        if ($(event.target).hasClass("message"))
+            this.selectedElement = $(event.target);
+        else
+            this.selectedElement = $(event.target).parents(".message");
+        this.content = this.selectedElement.find(".content");
+        elementsActive.userContextMenu = true;
+        this.menuElement = $("<div>", { class: "context-menu" });
+        let copyBtn = $("<span>", { html: "Copy" }), openLinkBtn = $("<span>", { html: "Open link here" }), openLinkNewTabBtn = $("<span>", { html: "Open link in new tab" }), editBtn = $("<span>", { html: "Edit" });
+        copyBtn.click(function (event) {
+            contextMenu.copyText();
+        });
+        openLinkBtn.click(function (event) {
+            contextMenu.openLink();
+        });
+        openLinkNewTabBtn.click(function (event) {
+            contextMenu.openLinkNewTab();
+        });
+        editBtn.click(function (event) {
+            contextMenu.edit();
+        });
+        if (this.content[0].tagName !== "A") {
+            openLinkBtn.addClass("button-disabled");
+            openLinkNewTabBtn.addClass("button-disabled");
+        }
+        if (!this.selectedElement.parents(".message-wrap").hasClass("sent"))
+            editBtn.addClass("button-disabled");
+        this.menuElement
+            .append(copyBtn, openLinkBtn, openLinkNewTabBtn, editBtn)
+            .css({
+            top: this.posY - 90,
+            left: this.posX - 20
+        });
+        $("body").append(this.menuElement);
     }
-    copyText() { }
-    openLink() { }
-    openLinkNewTab() { }
+    copyText() {
+        let tempElement = $("<input>");
+        $("body").append(tempElement);
+        tempElement
+            .val(this.content.text())
+            .trigger("select");
+        document.execCommand("copy");
+        tempElement.remove();
+    }
+    openLink() {
+        location.assign(this.content.text());
+    }
+    openLinkNewTab() {
+        window.open(this.content.text());
+    }
+    edit() {
+        this.content
+            .attr("contenteditable", "true")
+            .trigger("focus");
+    }
+    disable() {
+        elementsActive.userContextMenu = false;
+        this.menuElement.remove();
+    }
 }

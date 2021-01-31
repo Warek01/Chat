@@ -1,8 +1,7 @@
 declare const io: Function;
 const socket = io();
 
-const 
-  login_form: JQuery = $("#login-wrapper"),
+const login_form: JQuery = $("#login-wrapper"),
   login_input: JQuery = $("#username"),
   chat_form: JQuery = $("#chat-wrapper"),
   chat_input: JQuery = $("#chat-input"),
@@ -16,17 +15,19 @@ const
 
 let currentUser: string | null,
   previousUser: string | null,
-  buttonsActive: {
-  changeUserDropdown: boolean,
-  advancedTab: boolean
-} = {
-  changeUserDropdown: false,
-  advancedTab: false
-};
+  contextMenu: ContextMenu | null,
+  elementsActive: {
+    changeUserDropdown: boolean;
+    advancedTab: boolean;
+    userContextMenu: boolean;
+  } = {
+    changeUserDropdown: false,
+    advancedTab: false,
+    userContextMenu: false
+  };
 
 $(document).ready(function (event): void {
   if (document.cookie.match(/username/)) {
-
     currentUser = decodeURIComponent(
       (document.cookie.match(/(?<=username=)\w+/) || [""])[0]
     );
@@ -34,7 +35,6 @@ $(document).ready(function (event): void {
     user_field.text(currentUser);
     init();
     edit_user_btn.css("pointer-events", "all");
-
     socket.emit("user connected", currentUser);
   } else {
     $("#login").click(login);
@@ -47,19 +47,19 @@ $(document).ready(function (event): void {
       (document.cookie.match(/(?<=previousUser=)\w+/) || [""])[0]
     );
     $("#last-user-name")
-    .css("display", "block")
-    .text(previousUser)
-    .click(function(event) {
-      login_input.val(previousUser as string);
-      login();
-    });
+      .css("display", "block")
+      .text(previousUser)
+      .click(function (event) {
+        login_input.val(previousUser as string);
+        login();
+      });
   } else {
     $(".last-user").hide();
   }
 });
 
 edit_user_btn.click(function (event): void {
-  if (!buttonsActive.changeUserDropdown) {
+  if (!elementsActive.changeUserDropdown) {
     dropdown.show();
     $("body").children().not("header").css({
       "pointer-events": "none",
@@ -72,19 +72,18 @@ edit_user_btn.click(function (event): void {
       filter: "blur(0)"
     });
   }
-  buttonsActive.changeUserDropdown = !buttonsActive.changeUserDropdown;
+  elementsActive.changeUserDropdown = !elementsActive.changeUserDropdown;
 });
 
-advanced_tab_btn.click(function(event): void {
+advanced_tab_btn.click(function (event): void {
   if (advanced_tab.css("display") === "none") {
     advanced_tab.show();
     dropdown.css("height", 180);
-  }
-  else {
+  } else {
     advanced_tab.hide();
     dropdown.css("height", 150);
   }
-  buttonsActive.advancedTab = !buttonsActive.advancedTab;
+  elementsActive.advancedTab = !elementsActive.advancedTab;
 });
 
 login_input.keypress(function (event): void {
@@ -99,6 +98,7 @@ chat_input.keypress(function (event): void {
   if (event.key === "Enter") $("#sendBtn").trigger("click");
 });
 
+// Global listeners
 socket
   .on("message", (message: MessageBody): void => {
     createMessage(message);
@@ -110,41 +110,60 @@ socket
     createConnectionMessage(user, true);
   })
   .on("error", (err: Error): void => {
+    console.log(currentUser);
     console.warn("Socket Error: ", err);
+  })
+  .on("clear history", () => {
+    clearMessagehistory(false);
   });
 
-$(window).on("unload", function (event): void {
-  socket.emit("user disconnected", currentUser);
-});
-
-// Global listeners
 $(window).on({
   click: function (event): void {
     if (
-      buttonsActive.advancedTab && 
-      $(event.target).attr("id") !== advanced_tab.attr("id") &&
-      $(event.target).attr("id") !== advanced_tab_btn.attr("id")
-    ) advanced_tab_btn.trigger("click");
+      elementsActive.userContextMenu &&
+      !$(event.target).hasClass("context-menu")
+    ) {
+      contextMenu?.disable();
+      return;
+    }
 
     if (
-      buttonsActive.changeUserDropdown &&
+      elementsActive.advancedTab &&
+      !elementsActive.userContextMenu &&
+      $(event.target).attr("id") !== advanced_tab.attr("id") &&
+      $(event.target).attr("id") !== advanced_tab_btn.attr("id")
+    )
+      advanced_tab_btn.trigger("click");
+
+    if (
+      elementsActive.changeUserDropdown &&
+      !elementsActive.userContextMenu &&
       $(event.target).attr("id") !== "dropdown" &&
       $(event.target).parents().attr("id") !== "dropdown" &&
       $(event.target).attr("id") !== "edit-user" &&
       $(event.target).parent().attr("id") !== "edit-user"
-    ) edit_user_btn.trigger("click");
+    )
+      edit_user_btn.trigger("click");
   },
+
   contextmenu: function (event): void {
-    console.log($(event.target).hasClass("message"))
     if (
-      $(event.target).hasClass("message") ||
-      $(event.target).parents().hasClass("message")
-      ) {
+      ($(event.target).hasClass("message") ||
+        $(event.target).parents().hasClass("message")) &&
+      !event.shiftKey
+    ) {
       event.preventDefault();
-      new ContextMenu(event.target);
+      contextMenu?.disable();
+      contextMenu = new ContextMenu(event);
     }
+  },
+
+  unload: function (event): void {
+    socket.emit("user disconnected", currentUser);
   }
 });
+
+// Functions
 
 function removeCookie(cookie: string): string {
   document.cookie = `${encodeURIComponent(cookie)}=0; max-age=0`;
@@ -182,11 +201,11 @@ function login(): void {
 function logout(): void {
   console.assert(currentUser !== null, "User in null");
 
+  socket.emit("user disconnected", currentUser);
   previousUser = currentUser;
   currentUser = null;
   setCookie("previousUser", previousUser as string);
   removeCookie("username");
-  socket.emit("user disconnected", currentUser);
 
   chat_form.hide();
   login_form.css("display", "flex");
@@ -198,7 +217,7 @@ function logout(): void {
     "pointer-events": "all",
     filter: "blur(0)"
   });
-  buttonsActive.changeUserDropdown = false;
+  elementsActive.changeUserDropdown = false;
 
   for (let message of $(".message.sent")) {
     $(message).removeClass("sent").find(".sender").appendTo(message);
@@ -210,7 +229,7 @@ function sendMessage(): void {
     const body: MessageBody = {
       content: chat_input.val() as string,
       sender: currentUser as string,
-      timestamp: Date.now() as number,
+      timestamp: Date.now() as number
     };
 
     chat_input.val("");
@@ -221,7 +240,6 @@ function sendMessage(): void {
 }
 
 function init(): void {
-
   clearMessagehistory(false);
 
   fetch("/init")
@@ -229,15 +247,19 @@ function init(): void {
     .then(res => {
       for (const message of JSON.parse(res)) {
         if (message.type === "message") createMessage(message);
-        else if (message.type === "connected") createConnectionMessage(message.sender);
-        else if (message.type === "disconnected") createConnectionMessage(message.sender, true);
+        else if (message.type === "connected")
+          createConnectionMessage(message.sender);
+        else if (message.type === "disconnected")
+          createConnectionMessage(message.sender, true);
       }
     });
 }
 
 // https://stackoverflow.com/questions/8667070/javascript-regular-expression-to-validate-url
 function validateUrl(value: string): boolean {
-  return /^(?:(?:(?:https?|ftp):)?\/\/)(?:\S+(?::\S*)?@)?(?:(?!(?:10|127)(?:\.\d{1,3}){3})(?!(?:169\.254|192\.168)(?:\.\d{1,3}){2})(?!172\.(?:1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2})(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])(?:\.(?:1?\d{1,2}|2[0-4]\d|25[0-5])){2}(?:\.(?:[1-9]\d?|1\d\d|2[0-4]\d|25[0-4]))|(?:(?:[a-z\u00a1-\uffff0-9]-*)*[a-z\u00a1-\uffff0-9]+)(?:\.(?:[a-z\u00a1-\uffff0-9]-*)*[a-z\u00a1-\uffff0-9]+)*(?:\.(?:[a-z\u00a1-\uffff]{2,})))(?::\d{2,5})?(?:[/?#]\S*)?$/i.test(value);
+  return /^(?:(?:(?:https?|ftp):)?\/\/)(?:\S+(?::\S*)?@)?(?:(?!(?:10|127)(?:\.\d{1,3}){3})(?!(?:169\.254|192\.168)(?:\.\d{1,3}){2})(?!172\.(?:1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2})(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])(?:\.(?:1?\d{1,2}|2[0-4]\d|25[0-5])){2}(?:\.(?:[1-9]\d?|1\d\d|2[0-4]\d|25[0-4]))|(?:(?:[a-z\u00a1-\uffff0-9]-*)*[a-z\u00a1-\uffff0-9]+)(?:\.(?:[a-z\u00a1-\uffff0-9]-*)*[a-z\u00a1-\uffff0-9]+)*(?:\.(?:[a-z\u00a1-\uffff]{2,})))(?::\d{2,5})?(?:[/?#]\S*)?$/i.test(
+    value
+  );
 }
 
 // Messages area
@@ -245,23 +267,20 @@ interface MessageBody {
   content: string;
   sender: string;
   timestamp: number;
-  type?: string
+  type?: string;
 }
 
 function createConnectionMessage(
   name: string,
   dissconected: boolean = false
 ): void {
-
-  if (currentUser === name) return;
-
   let container = $("<div>", { class: "connection" }),
     content = $("<p>", {
       html: `${name} ${dissconected ? "left" : "joined"} chat`,
       class: "username"
     });
 
-  container.append(content).appendTo(chat_area);
+  if (currentUser !== name) container.append(content).appendTo(chat_area);
 }
 
 function createMessage(message: MessageBody): void {
@@ -273,18 +292,18 @@ function createMessage(message: MessageBody): void {
       class: "sender"
     });
 
-  if(validateUrl(message.content)) {
+  if (validateUrl(message.content)) {
     content = $("<a>", {
       html: message.content.trim(),
       class: "content",
       href: message.content,
       target: "_blank"
-    })
+    });
   } else {
     content = $("<span>", {
       html: message.content.trim(),
       class: "content"
-    })
+    });
   }
 
   if (message.sender === currentUser) {
@@ -299,22 +318,102 @@ function createMessage(message: MessageBody): void {
 }
 
 function clearMessagehistory(clearFromDb: boolean = true): void {
-  if (clearFromDb) fetch("/clear")
-    .then((res) => res.text)
-    .then((res) => console.log(res));
+  if (clearFromDb) {
+    fetch("/clear")
+      .then(res => res.text)
+      .then(res => console.log(res));
+    socket.emit("clear history");
+  }
 
   chat_area.children().remove();
 }
 
 // Custom context menu
 class ContextMenu {
-  private element: JQuery;
+  private posX: number;
+  private posY: Number;
+  private menuElement: JQuery;
+  private selectedElement: JQuery;
+  private content: JQuery;
 
-  constructor(element: JQuery | HTMLElement | any) {
-    this.element = $(element);
+  constructor(event: JQuery.ContextMenuEvent | JQuery.ClickEvent) {
+    this.posX = event.clientX;
+    this.posY = event.clientY;
+
+    if ($(event.target).hasClass("message"))
+      this.selectedElement = $(event.target);
+    else this.selectedElement = $(event.target).parents(".message");
+    this.content = this.selectedElement.find(".content");
+
+    elementsActive.userContextMenu = true;
+
+    this.menuElement = $("<div>", { class: "context-menu" });
+
+    let copyBtn = $("<span>", { html: "Copy" }),
+      openLinkBtn = $("<span>", { html: "Open link here" }),
+      openLinkNewTabBtn = $("<span>", { html: "Open link in new tab" }),
+      editBtn = $("<span>", { html: "Edit" });
+
+    copyBtn.click(function (event): void {
+      contextMenu!.copyText();
+    });
+
+    openLinkBtn.click(function (event): void {
+      contextMenu!.openLink();
+    });
+
+    openLinkNewTabBtn.click(function (event): void {
+      contextMenu!.openLinkNewTab();
+    });
+
+    editBtn.click(function (event): void {
+      contextMenu!.edit();
+    });
+
+    if (this.content[0].tagName !== "A") {
+      openLinkBtn.addClass("button-disabled");
+      openLinkNewTabBtn.addClass("button-disabled");
+    }
+
+    if (!this.selectedElement.parents(".message-wrap").hasClass("sent")) 
+      editBtn.addClass("button-disabled");
+
+    this.menuElement
+      .append(copyBtn, openLinkBtn, openLinkNewTabBtn, editBtn)
+      .css({
+        top: (this.posY as number) - 90,
+        left: (this.posX as number) - 20
+      });
+
+    $("body").append(this.menuElement);
   }
 
-  copyText(): void {}
-  openLink(): void {}
-  openLinkNewTab(): void {}
+  copyText(): void {
+    let tempElement = $("<input>");
+    $("body").append(tempElement);
+    tempElement
+      .val(this.content.text())
+      .trigger("select");
+    document.execCommand("copy");
+    tempElement.remove();
+  }
+
+  openLink(): void {
+    location.assign(this.content.text());
+  }
+
+  openLinkNewTab(): void {
+    window.open(this.content.text());
+  }
+
+  edit(): void {
+    this.content
+    .attr("contenteditable", "true")
+    .trigger("focus");
+  }
+
+  disable(): void {
+    elementsActive.userContextMenu = false;
+    this.menuElement.remove();
+  }
 }
