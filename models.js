@@ -19,5 +19,10 @@ exports.Message = mongoose_1.model("message", new mongoose_1.Schema({
         type: String,
         default: "message",
         required: true
+    },
+    edited: {
+        type: Boolean,
+        default: false,
+        required: false
     }
 }), "messages");

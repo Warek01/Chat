@@ -41,21 +41,7 @@ $(document).ready(function (event): void {
     login_form.css("display", "flex");
     chat_form.hide();
   }
-
-  if (document.cookie.match(/previousUser/)) {
-    previousUser = decodeURIComponent(
-      (document.cookie.match(/(?<=previousUser=)\w+/) || [""])[0]
-    );
-    $("#last-user-name")
-      .css("display", "block")
-      .text(previousUser)
-      .click(function (event) {
-        login_input.val(previousUser as string);
-        login();
-      });
-  } else {
-    $(".last-user").hide();
-  }
+  validatePreviousUserBtn();
 });
 
 edit_user_btn.click(function (event): void {
@@ -78,7 +64,7 @@ edit_user_btn.click(function (event): void {
 advanced_tab_btn.click(function (event): void {
   if (advanced_tab.css("display") === "none") {
     advanced_tab.show();
-    dropdown.css("height", 180);
+    dropdown.css("height", 230);
   } else {
     advanced_tab.hide();
     dropdown.css("height", 150);
@@ -95,13 +81,24 @@ login_input.keypress(function (event): void {
 });
 
 chat_input.keypress(function (event): void {
-  if (event.key === "Enter") $("#sendBtn").trigger("click");
+  if (event.key === "Enter")
+    if (event.shiftKey) chat_input.val(chat_input.val() + "\n");
+    // Nu lucreaza \n la input
+    else $("#sendBtn").trigger("click");
 });
 
 // Global listeners
 socket
   .on("message", (message: MessageBody): void => {
     createMessage(message);
+  })
+  .on("message id", (id: string) => {
+    for (let message of $(".message-wrap")) {
+      if (!$(message).attr("ms_id")) {
+        $(message).attr("ms_id", id);
+        break;
+      }
+    }
   })
   .on("user connected", (user: string): void => {
     createConnectionMessage(user);
@@ -110,11 +107,34 @@ socket
     createConnectionMessage(user, true);
   })
   .on("error", (err: Error): void => {
-    console.log(currentUser);
     console.warn("Socket Error: ", err);
   })
   .on("clear history", () => {
     clearMessagehistory(false);
+  })
+  .on("reload", () => {
+    location.reload();
+  })
+  .on("message edit", (id: string, content: string) => {
+    for (let message of $(".message-wrap"))
+      if ($(message).attr("ms_id") === id) {
+        console.log(message);
+        $(message)
+          .find(".content")
+          .text(content)
+          .css("margin-bottom", 10)
+          .append(
+            $("<span>", {
+              html: "Edited",
+              class: "edited-mark"
+            })
+          );
+
+        break;
+      }
+  })
+  .on("clear logs", () => {
+    $(".connection").remove();
   });
 
 $(window).on({
@@ -147,13 +167,13 @@ $(window).on({
   },
 
   contextmenu: function (event): void {
+    contextMenu?.disable();
     if (
       ($(event.target).hasClass("message") ||
         $(event.target).parents().hasClass("message")) &&
       !event.shiftKey
     ) {
       event.preventDefault();
-      contextMenu?.disable();
       contextMenu = new ContextMenu(event);
     }
   },
@@ -206,6 +226,7 @@ function logout(): void {
   currentUser = null;
   setCookie("previousUser", previousUser as string);
   removeCookie("username");
+  validatePreviousUserBtn();
 
   chat_form.hide();
   login_form.css("display", "flex");
@@ -235,7 +256,6 @@ function sendMessage(): void {
     chat_input.val("");
 
     socket.emit("message", body);
-    createMessage(body);
   }
 }
 
@@ -262,12 +282,31 @@ function validateUrl(value: string): boolean {
   );
 }
 
+function validatePreviousUserBtn(): void {
+  if (document.cookie.match(/previousUser/)) {
+    previousUser = decodeURIComponent(
+      (document.cookie.match(/(?<=previousUser=)\w+/) || [""])[0]
+    );
+
+    $(".last-user").show();
+    $("#last-user-name")
+      .css("display", "block")
+      .text(previousUser)
+      .click(function (event) {
+        login_input.val(previousUser as string);
+        login();
+      });
+  } else $(".last-user").hide();
+}
+
 // Messages area
 interface MessageBody {
   content: string;
   sender: string;
   timestamp: number;
   type?: string;
+  _id?: string | number;
+  edited?: boolean;
 }
 
 function createConnectionMessage(
@@ -315,6 +354,17 @@ function createMessage(message: MessageBody): void {
 
   container.append(_message);
   chat_area.append(container);
+  container.attr("ms_id", message._id as string);
+  console.log(message);
+
+  if (message.edited) {
+    let editContainer = $("<span>", {
+      html: "Edited",
+      class: "edited-mark"
+    });
+
+    container.css("margin-bottom", 10).append(editContainer);
+  }
 }
 
 function clearMessagehistory(clearFromDb: boolean = true): void {
@@ -328,13 +378,19 @@ function clearMessagehistory(clearFromDb: boolean = true): void {
   chat_area.children().remove();
 }
 
+function clearAllLogs(clearFromDb: boolean = true): void {
+  if (clearFromDb) socket.emit("clear logs");
+  else $(".connection").remove();
+}
+
 // Custom context menu
 class ContextMenu {
-  private posX: number;
-  private posY: Number;
+  public posX: number;
+  public posY: Number;
   private menuElement: JQuery;
   private selectedElement: JQuery;
-  private content: JQuery;
+  private wrapElement: JQuery;
+  private contentElement: JQuery;
 
   constructor(event: JQuery.ContextMenuEvent | JQuery.ClickEvent) {
     this.posX = event.clientX;
@@ -343,73 +399,89 @@ class ContextMenu {
     if ($(event.target).hasClass("message"))
       this.selectedElement = $(event.target);
     else this.selectedElement = $(event.target).parents(".message");
-    this.content = this.selectedElement.find(".content");
+    this.contentElement = this.selectedElement.find(".content");
 
     elementsActive.userContextMenu = true;
 
     this.menuElement = $("<div>", { class: "context-menu" });
+    this.wrapElement = this.selectedElement.parent(".message-wrap");
 
     let copyBtn = $("<span>", { html: "Copy" }),
       openLinkBtn = $("<span>", { html: "Open link here" }),
       openLinkNewTabBtn = $("<span>", { html: "Open link in new tab" }),
       editBtn = $("<span>", { html: "Edit" });
 
-    copyBtn.click(function (event): void {
-      contextMenu!.copyText();
+    copyBtn.click(e => {
+      this.copyText();
     });
 
-    openLinkBtn.click(function (event): void {
-      contextMenu!.openLink();
+    openLinkBtn.click(e => {
+      this.openLink();
     });
 
-    openLinkNewTabBtn.click(function (event): void {
-      contextMenu!.openLinkNewTab();
+    openLinkNewTabBtn.click(e => {
+      this.openLinkNewTab();
     });
 
-    editBtn.click(function (event): void {
-      contextMenu!.edit();
+    editBtn.click(e => {
+      this.edit();
     });
 
-    if (this.content[0].tagName !== "A") {
+    if (this.contentElement[0].tagName !== "A") {
       openLinkBtn.addClass("button-disabled");
       openLinkNewTabBtn.addClass("button-disabled");
     }
 
-    if (!this.selectedElement.parents(".message-wrap").hasClass("sent")) 
-      editBtn.addClass("button-disabled");
+    if (!this.wrapElement.hasClass("sent")) editBtn.addClass("button-disabled");
 
     this.menuElement
       .append(copyBtn, openLinkBtn, openLinkNewTabBtn, editBtn)
       .css({
-        top: (this.posY as number) - 90,
-        left: (this.posX as number) - 20
-      });
+        top: (this.posY as number) - 35,
+        left: (this.posX as number) - 15
+      })
+      .appendTo($("body"));
 
-    $("body").append(this.menuElement);
+    if (this.wrapElement.hasClass("sent")) {
+      this.menuElement
+        .addClass("right-side")
+        .css("left", (this.posX as number) - 283);
+    }
   }
 
   copyText(): void {
     let tempElement = $("<input>");
     $("body").append(tempElement);
-    tempElement
-      .val(this.content.text())
-      .trigger("select");
+    tempElement.val(this.contentElement.text()).trigger("select");
     document.execCommand("copy");
     tempElement.remove();
   }
 
   openLink(): void {
-    location.assign(this.content.text());
+    location.assign(this.contentElement.text());
   }
 
   openLinkNewTab(): void {
-    window.open(this.content.text());
+    window.open(this.contentElement.text());
   }
 
   edit(): void {
-    this.content
-    .attr("contenteditable", "true")
-    .trigger("focus");
+    this.contentElement.attr("contenteditable", "true").trigger("focus");
+
+    const endEdit = () => {
+      if (this.contentElement.text().trim() != "") {
+        socket.emit(
+          "message edit",
+          this.wrapElement.attr("ms_id")?.toString(),
+          this.contentElement.text().trim()
+        );
+        this.contentElement.attr("contenteditable", "false");
+
+        this.contentElement.off("focusout", endEdit);
+      }
+    };
+
+    this.contentElement.focusout(endEdit);
   }
 
   disable(): void {

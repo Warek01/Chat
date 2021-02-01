@@ -129,11 +129,6 @@
     }
   }
 
-  &:not(.sent) .sender {
-    top: 5px;
-    left: -3px;
-  }
-
   a {
     color: #f1c40f;
 
@@ -147,6 +142,10 @@
     display: flex;
     justify-content: flex-end;
 
+    .edited-mark {
+      right: 20px;
+    }
+
     .message {
       position: relative;
       display: flex;
@@ -154,6 +153,7 @@
     }
 
     .content {
+      position: relative;
       display: inline-block;
       background-color: #3498db; // old  #686de0
       right: 5px;
@@ -161,6 +161,23 @@
       border-bottom-right-radius: 0;
       margin-left: 0;
     }
+  }
+
+  &:not(.sent) {
+    .sender {
+      top: 5px;
+      left: -3px;
+    }
+
+    .edited-mark {
+      left: 20px;
+    }
+  }
+  
+  .edited-mark {
+    position: absolute;
+    font-size: 8px;
+    bottom: -10px;
   }
 }
 

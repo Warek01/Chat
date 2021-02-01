@@ -66,7 +66,18 @@ button {
   cursor: default;
   z-index: 10;
 
-  &::after {
+  &.right-side::after {
+    content: "";
+    position: absolute;
+    right: 10px;
+    bottom: -5px;
+    width: 10px;
+    height: 10px;
+    transform: rotateZ(45deg);
+    background-color: #b2bec3;
+  }
+
+  &:not(.right-side)::after {
     content: "";
     position: absolute;
     bottom: -5px;
@@ -92,7 +103,7 @@ button {
   }
 
   .button-disabled {
-    color: #aaa;
+    color: #9f9f9f;
     cursor: default;
     pointer-events: none;
   }

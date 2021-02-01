@@ -17,11 +17,18 @@ export const Message = model("message", new Schema({
     type: String,
     default: "message",
     required: true
+  },
+  edited: {
+    type: Boolean,
+    default: false,
+    required: false
   }
 }), "messages");
 
 export interface MessageBody {
-  content: string,
-  sender: string,
-  timestamp: number
+  content: string;
+  sender: string;
+  timestamp: number;
+  type: string;
+  edited: boolean;
 }

@@ -5,10 +5,11 @@ import chalk from "chalk";
 import cors from "cors";
 import path from "path";
 import * as models from "./models";
+import { Socket, Server } from "socket.io";
 
 const app: Application = express(),
   server = createServer(app),
-  io = require("socket.io")(server);
+  io: Server = require("socket.io")(server);
 
 require("mongoose").Promise = global.Promise;
 
@@ -17,7 +18,7 @@ connect("mongodb://localhost:27017/Chat", {
   useFindAndModify: true,
   useNewUrlParser: true,
   useUnifiedTopology: true,
-  numberOfRetries: 1
+  numberOfRetries: 2
 });
 
 connection
@@ -32,27 +33,27 @@ connection
   });
 
 // Socket.io (websocket) connection
-
-io.on("connection", (socket: any): void => {
+io.on("connection", (socket: Socket): void => {
   console.log(chalk.hex("#95a5a6")("Client connected!"));
 
-  socket.on("message", (message: models.MessageBody): void => {
+  socket.on("message", async (message: models.MessageBody) => {
     console.log(message);
-    socket.broadcast.emit("message", message);
-
-    new models.Message({
+    
+    let msg = new models.Message({
       content: message.content,
       sender: message.sender,
       timestamp: message.timestamp
-    })
-      .save()
-      .catch(function (err): void {
-        console.log(chalk.hex("#e84118")(err), "Message saved");
-      });
+    });
+    
+    await msg.save().catch(function (err): void {
+      console.log(chalk.hex("#e84118")(err), "Message saved");
+    });
+    
+    io.sockets.emit("message", msg.toObject());
   });
 
   socket.on("user disconnected", (userName: string): void => {
-    io.sockets.emit("user disconnected", userName);
+    socket.broadcast.emit("user disconnected", userName);
     new models.Message({
       sender: userName,
       type: "disconnected"
@@ -64,19 +65,39 @@ io.on("connection", (socket: any): void => {
   });
 
   socket.on("user connected", (userName: string): void => {
-    io.sockets.emit("user connected", userName);
+    socket.broadcast.emit("user connected", userName);
     new models.Message({
       sender: userName,
       type: "connected"
     })
       .save()
-      .catch(function (err): void {
+      .catch(err => {
         console.log(chalk.hex("#e84118")(err), "User connected");
       });
   });
 
   socket.on("clear history", () => {
     socket.broadcast.emit("clear history");
+  });
+
+  socket.on("clear logs", async () => {
+    await models.Message.deleteMany({ type: "disconnected" });
+    await models.Message.deleteMany({ type: "connected" });
+
+    io.sockets.emit("clear logs");
+  });
+
+  socket.on("message edit", async (id: string, content: string) => {
+    console.log(id, content);
+    await models.Message.findByIdAndUpdate(id, {
+      content: content,
+      edited: true
+    }).catch(err => {
+      console.log(chalk.hex("#e84118")(err), "Message edit");
+      socket.emit("error", err);
+    });
+
+    io.sockets.emit("message edit", id, content);
   });
 });
 
