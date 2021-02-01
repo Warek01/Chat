@@ -96,7 +96,6 @@ socket
     .on("message edit", (id, content) => {
     for (let message of $(".message-wrap"))
         if ($(message).attr("ms_id") === id) {
-            console.log(message);
             $(message)
                 .find(".content")
                 .text(content)
@@ -222,6 +221,10 @@ function init() {
 function validateUrl(value) {
     return /^(?:(?:(?:https?|ftp):)?\/\/)(?:\S+(?::\S*)?@)?(?:(?!(?:10|127)(?:\.\d{1,3}){3})(?!(?:169\.254|192\.168)(?:\.\d{1,3}){2})(?!172\.(?:1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2})(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])(?:\.(?:1?\d{1,2}|2[0-4]\d|25[0-5])){2}(?:\.(?:[1-9]\d?|1\d\d|2[0-4]\d|25[0-4]))|(?:(?:[a-z\u00a1-\uffff0-9]-*)*[a-z\u00a1-\uffff0-9]+)(?:\.(?:[a-z\u00a1-\uffff0-9]-*)*[a-z\u00a1-\uffff0-9]+)*(?:\.(?:[a-z\u00a1-\uffff]{2,})))(?::\d{2,5})?(?:[/?#]\S*)?$/i.test(value);
 }
+function replaceWithAnchor(content) {
+    let exp_match = /(\b(https?|):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|\\])/gi, element_content = content.replace(exp_match, "<a href='$1'>$1</a>"), new_exp_match = /(^|[^\/])(www\.[\S]+(\b|$))/gim, new_content = element_content.replace(new_exp_match, '$1<a target="_blank" href="http://$2">$2</a>');
+    return new_content;
+}
 function validatePreviousUserBtn() {
     if (document.cookie.match(/previousUser/)) {
         previousUser = decodeURIComponent((document.cookie.match(/(?<=previousUser=)\w+/) || [""])[0]);
@@ -250,20 +253,10 @@ function createMessage(message) {
         html: message.sender,
         class: "sender"
     });
-    if (validateUrl(message.content)) {
-        content = $("<a>", {
-            html: message.content.trim(),
-            class: "content",
-            href: message.content,
-            target: "_blank"
-        });
-    }
-    else {
-        content = $("<span>", {
-            html: message.content.trim(),
-            class: "content"
-        });
-    }
+    content = $("<span>", {
+        html: replaceWithAnchor(message.content.trim()),
+        class: "content"
+    });
     if (message.sender === currentUser) {
         container.addClass("sent");
         _message.append(sender, content);
@@ -274,7 +267,6 @@ function createMessage(message) {
     container.append(_message);
     chat_area.append(container);
     container.attr("ms_id", message._id);
-    console.log(message);
     if (message.edited) {
         let editContainer = $("<span>", {
             html: "Edited",
@@ -303,6 +295,7 @@ class ContextMenu {
     constructor(event) {
         this.posX = event.clientX;
         this.posY = event.clientY;
+        this.target = event.target;
         if ($(event.target).hasClass("message"))
             this.selectedElement = $(event.target);
         else
@@ -311,22 +304,28 @@ class ContextMenu {
         elementsActive.userContextMenu = true;
         this.menuElement = $("<div>", { class: "context-menu" });
         this.wrapElement = this.selectedElement.parent(".message-wrap");
-        let copyBtn = $("<span>", { html: "Copy" }), openLinkBtn = $("<span>", { html: "Open link here" }), openLinkNewTabBtn = $("<span>", { html: "Open link in new tab" }), editBtn = $("<span>", { html: "Edit" });
+        let copyBtn = $("<span>", { html: "Copy" }), openLinkBtn = $("<span>", {
+            html: "Open link here",
+            "class": "button-disabled"
+        }), openLinkNewTabBtn = $("<span>", {
+            html: "Open link in new tab",
+            "class": "button-disabled"
+        }), editBtn = $("<span>", { html: "Edit" });
         copyBtn.click(e => {
             this.copyText();
         });
-        openLinkBtn.click(e => {
-            this.openLink();
+        openLinkBtn.click(event => {
+            this.openLink(event);
         });
-        openLinkNewTabBtn.click(e => {
-            this.openLinkNewTab();
+        openLinkNewTabBtn.click(event => {
+            this.openLinkNewTab(event);
         });
         editBtn.click(e => {
             this.edit();
         });
-        if (this.contentElement[0].tagName !== "A") {
-            openLinkBtn.addClass("button-disabled");
-            openLinkNewTabBtn.addClass("button-disabled");
+        if (event.target.tagName === "A") {
+            openLinkBtn.removeClass("button-disabled");
+            openLinkNewTabBtn.removeClass("button-disabled");
         }
         if (!this.wrapElement.hasClass("sent"))
             editBtn.addClass("button-disabled");
@@ -350,11 +349,11 @@ class ContextMenu {
         document.execCommand("copy");
         tempElement.remove();
     }
-    openLink() {
-        location.assign(this.contentElement.text());
+    openLink(event) {
+        location.assign(this.target.textContent);
     }
-    openLinkNewTab() {
-        window.open(this.contentElement.text());
+    openLinkNewTab(event) {
+        window.open(this.target.textContent);
     }
     edit() {
         this.contentElement.attr("contenteditable", "true").trigger("focus");

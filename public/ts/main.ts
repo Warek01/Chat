@@ -118,7 +118,6 @@ socket
   .on("message edit", (id: string, content: string) => {
     for (let message of $(".message-wrap"))
       if ($(message).attr("ms_id") === id) {
-        console.log(message);
         $(message)
           .find(".content")
           .text(content)
@@ -281,6 +280,16 @@ function validateUrl(value: string): boolean {
     value
   );
 }
+function replaceWithAnchor(content: string) {
+  let exp_match = /(\b(https?|):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|\\])/gi,
+    element_content = content.replace(exp_match, "<a href='$1'>$1</a>"),
+    new_exp_match = /(^|[^\/])(www\.[\S]+(\b|$))/gim,
+    new_content = element_content.replace(
+    new_exp_match,
+    '$1<a target="_blank" href="http://$2">$2</a>'
+  );
+  return new_content;
+}
 
 function validatePreviousUserBtn(): void {
   if (document.cookie.match(/previousUser/)) {
@@ -331,19 +340,10 @@ function createMessage(message: MessageBody): void {
       class: "sender"
     });
 
-  if (validateUrl(message.content)) {
-    content = $("<a>", {
-      html: message.content.trim(),
-      class: "content",
-      href: message.content,
-      target: "_blank"
-    });
-  } else {
-    content = $("<span>", {
-      html: message.content.trim(),
-      class: "content"
-    });
-  }
+  content = $("<span>", {
+    html: replaceWithAnchor(message.content.trim()),
+    class: "content"
+  });
 
   if (message.sender === currentUser) {
     container.addClass("sent");
@@ -355,7 +355,6 @@ function createMessage(message: MessageBody): void {
   container.append(_message);
   chat_area.append(container);
   container.attr("ms_id", message._id as string);
-  console.log(message);
 
   if (message.edited) {
     let editContainer = $("<span>", {
@@ -391,10 +390,12 @@ class ContextMenu {
   private selectedElement: JQuery;
   private wrapElement: JQuery;
   private contentElement: JQuery;
+  private target: HTMLElement;
 
   constructor(event: JQuery.ContextMenuEvent | JQuery.ClickEvent) {
     this.posX = event.clientX;
     this.posY = event.clientY;
+    this.target = event.target;
 
     if ($(event.target).hasClass("message"))
       this.selectedElement = $(event.target);
@@ -407,29 +408,35 @@ class ContextMenu {
     this.wrapElement = this.selectedElement.parent(".message-wrap");
 
     let copyBtn = $("<span>", { html: "Copy" }),
-      openLinkBtn = $("<span>", { html: "Open link here" }),
-      openLinkNewTabBtn = $("<span>", { html: "Open link in new tab" }),
+      openLinkBtn = $("<span>", { 
+        html: "Open link here",
+        "class": "button-disabled"
+       }),
+      openLinkNewTabBtn = $("<span>", { 
+        html: "Open link in new tab",
+        "class": "button-disabled"
+       }),
       editBtn = $("<span>", { html: "Edit" });
 
     copyBtn.click(e => {
       this.copyText();
     });
 
-    openLinkBtn.click(e => {
-      this.openLink();
+    openLinkBtn.click(event => {
+      this.openLink(event);
     });
 
-    openLinkNewTabBtn.click(e => {
-      this.openLinkNewTab();
+    openLinkNewTabBtn.click(event => {
+      this.openLinkNewTab(event);
     });
 
     editBtn.click(e => {
       this.edit();
     });
 
-    if (this.contentElement[0].tagName !== "A") {
-      openLinkBtn.addClass("button-disabled");
-      openLinkNewTabBtn.addClass("button-disabled");
+    if (event.target.tagName === "A") {
+      openLinkBtn.removeClass("button-disabled");
+      openLinkNewTabBtn.removeClass("button-disabled");
     }
 
     if (!this.wrapElement.hasClass("sent")) editBtn.addClass("button-disabled");
@@ -457,12 +464,12 @@ class ContextMenu {
     tempElement.remove();
   }
 
-  openLink(): void {
-    location.assign(this.contentElement.text());
+  openLink(event: JQuery.ClickEvent): void {
+    location.assign(this.target.textContent as string);
   }
 
-  openLinkNewTab(): void {
-    window.open(this.contentElement.text());
+  openLinkNewTab(event: JQuery.ClickEvent): void {
+    window.open(this.target.textContent as string);
   }
 
   edit(): void {
