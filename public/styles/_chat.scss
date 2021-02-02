@@ -125,15 +125,33 @@
       top: calc(100% - 14px);
       height: 12px;
       font-size: 10px;
-      margin: 0 8px;
+      margin: 0 4px 0 10px;
     }
   }
-
+  
   a {
     color: #f1c40f;
-
+    
     &:hover {
       color: lighten(#f1c40f, 30);
+    }
+  }
+  
+  .date {
+    position: relative;
+    display: inline-block;
+    bottom: -5px;
+    font-size: 10px;
+
+    &::before {
+      content: "";
+      position: absolute;
+      display: block;
+      height: 15px;
+      width: 1px;
+      top: -2px;
+      left: -4px;
+      background-color: #e1b12c;
     }
   }
 
@@ -161,6 +179,17 @@
       border-bottom-right-radius: 0;
       margin-left: 0;
     }
+
+    .sender {
+      margin-right: 8px;
+    }
+    
+    .date {
+      top: calc(100% - 14px);
+      left: 0;
+      margin-right: 10px;
+    }
+
   }
 
   &:not(.sent) {

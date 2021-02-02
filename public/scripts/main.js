@@ -94,21 +94,28 @@ socket
     location.reload();
 })
     .on("message edit", (id, content) => {
-    for (let message of $(".message-wrap"))
-        if ($(message).attr("ms_id") === id) {
-            $(message)
-                .find(".content")
-                .text(content)
-                .css("margin-bottom", 10)
-                .append($("<span>", {
-                html: "Edited",
-                class: "edited-mark"
-            }));
-            break;
-        }
+    let message = findMessage(id);
+    if (message)
+        message
+            .find(".content")
+            .text(content)
+            .css("margin-bottom", 10)
+            .append($("<span>", {
+            html: "Edited",
+            class: "edited-mark"
+        }));
+    else
+        throw new Error(`Message with id "${id}" not found`);
 })
     .on("clear logs", () => {
     $(".connection").remove();
+})
+    .on("delete", (id) => {
+    let message = findMessage(id);
+    if (message)
+        message.remove();
+    else
+        throw new Error(`Message with id "${id}" not found`);
 });
 $(window).on({
     click: function (event) {
@@ -225,6 +232,12 @@ function replaceWithAnchor(content) {
     let exp_match = /(\b(https?|):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|\\])/gi, element_content = content.replace(exp_match, "<a href='$1'>$1</a>"), new_exp_match = /(^|[^\/])(www\.[\S]+(\b|$))/gim, new_content = element_content.replace(new_exp_match, '$1<a target="_blank" href="http://$2">$2</a>');
     return new_content;
 }
+function findMessage(id) {
+    for (let message of $(".message-wrap"))
+        if ($(message).attr("ms_id") === id)
+            return $(message);
+    return null;
+}
 function validatePreviousUserBtn() {
     if (document.cookie.match(/previousUser/)) {
         previousUser = decodeURIComponent((document.cookie.match(/(?<=previousUser=)\w+/) || [""])[0]);
@@ -249,20 +262,22 @@ function createConnectionMessage(name, dissconected = false) {
         container.append(content).appendTo(chat_area);
 }
 function createMessage(message) {
-    let container = $("<div>", { class: "message-wrap" }), _message = $("<div>", { class: "message" }), content, sender = $("<span>", {
-        html: message.sender,
-        class: "sender"
-    });
-    content = $("<span>", {
+    let container = $("<div>", { class: "message-wrap" }), _message = $("<div>", { class: "message" }), content = $("<span>", {
         html: replaceWithAnchor(message.content.trim()),
         class: "content"
+    }), sender = $("<span>", {
+        html: message.sender,
+        class: "sender"
+    }), date = $("<span>", {
+        html: getHour(message.timestamp),
+        class: "date"
     });
     if (message.sender === currentUser) {
         container.addClass("sent");
-        _message.append(sender, content);
+        _message.append(sender, date, content);
     }
     else {
-        _message.append(content, sender);
+        _message.append(content, sender, date);
     }
     container.append(_message);
     chat_area.append(container);
@@ -290,11 +305,15 @@ function clearAllLogs(clearFromDb = true) {
     else
         $(".connection").remove();
 }
+function getHour(timestamp) {
+    return `${new Date(timestamp).getHours()}:${new Date(timestamp).getMinutes().toString().length === 1
+        ? new Date(timestamp).getMinutes() + "0"
+        : new Date(timestamp).getMinutes()}`;
+}
 // Custom context menu
 class ContextMenu {
     constructor(event) {
-        this.posX = event.clientX;
-        this.posY = event.clientY;
+        this.disableScrolling();
         this.target = event.target;
         if ($(event.target).hasClass("message"))
             this.selectedElement = $(event.target);
@@ -304,43 +323,57 @@ class ContextMenu {
         elementsActive.userContextMenu = true;
         this.menuElement = $("<div>", { class: "context-menu" });
         this.wrapElement = this.selectedElement.parent(".message-wrap");
+        this.id = this.wrapElement.attr("ms_id") || "";
         let copyBtn = $("<span>", { html: "Copy" }), openLinkBtn = $("<span>", {
             html: "Open link here",
-            "class": "button-disabled"
+            class: "button-disabled"
         }), openLinkNewTabBtn = $("<span>", {
             html: "Open link in new tab",
-            "class": "button-disabled"
-        }), editBtn = $("<span>", { html: "Edit" });
+            class: "button-disabled"
+        }), editBtn = $("<span>", {
+            html: "Edit",
+            class: "button-disabled"
+        }), deleteBtn = $("<span>", {
+            html: "Delete",
+            class: "button-disabled"
+        });
         copyBtn.click(e => {
             this.copyText();
         });
-        openLinkBtn.click(event => {
-            this.openLink(event);
+        openLinkBtn.click(e => {
+            this.openLink();
         });
-        openLinkNewTabBtn.click(event => {
-            this.openLinkNewTab(event);
+        openLinkNewTabBtn.click(e => {
+            this.openLinkNewTab();
         });
         editBtn.click(e => {
             this.edit();
+        });
+        deleteBtn.click(e => {
+            this.delete();
         });
         if (event.target.tagName === "A") {
             openLinkBtn.removeClass("button-disabled");
             openLinkNewTabBtn.removeClass("button-disabled");
         }
-        if (!this.wrapElement.hasClass("sent"))
-            editBtn.addClass("button-disabled");
+        if (this.wrapElement.hasClass("sent")) {
+            editBtn.removeClass("button-disabled");
+            deleteBtn.removeClass("button-disabled");
+        }
         this.menuElement
-            .append(copyBtn, openLinkBtn, openLinkNewTabBtn, editBtn)
+            .append(copyBtn, openLinkBtn, openLinkNewTabBtn, editBtn, deleteBtn)
             .css({
-            top: this.posY - 35,
-            left: this.posX - 15
+            top: this.wrapElement.offset()?.top - 35,
+            left: this.contentElement.offset()?.left
         })
             .appendTo($("body"));
-        if (this.wrapElement.hasClass("sent")) {
-            this.menuElement
-                .addClass("right-side")
-                .css("left", this.posX - 283);
-        }
+        if (this.menuElement.width() + 90 >= this.selectedElement.width())
+            this.menuElement.css({
+                left: this.contentElement.offset()?.left -
+                    (this.menuElement.width() + 40)
+            });
+        if (this.wrapElement.hasClass("sent"))
+            this.menuElement.addClass("right-side");
     }
     copyText() {
         let tempElement = $("<input>");
@@ -349,17 +382,20 @@ class ContextMenu {
         document.execCommand("copy");
         tempElement.remove();
     }
-    openLink(event) {
+    delete() {
+        socket.emit("delete", this.id);
+    }
+    openLink() {
         location.assign(this.target.textContent);
     }
-    openLinkNewTab(event) {
+    openLinkNewTab() {
         window.open(this.target.textContent);
     }
     edit() {
         this.contentElement.attr("contenteditable", "true").trigger("focus");
         const endEdit = () => {
             if (this.contentElement.text().trim() != "") {
-                socket.emit("message edit", this.wrapElement.attr("ms_id")?.toString(), this.contentElement.text().trim());
+                socket.emit("message edit", this.id, this.contentElement.text().trim());
                 this.contentElement.attr("contenteditable", "false");
                 this.contentElement.off("focusout", endEdit);
             }
@@ -369,5 +405,15 @@ class ContextMenu {
     disable() {
         elementsActive.userContextMenu = false;
         this.menuElement.remove();
+        this.enableScrolling();
+    }
+    disableScrolling() {
+        let x = chat_area[0].scrollLeft, y = chat_area[0].scrollTop;
+        chat_area[0].onscroll = function () {
+            chat_area[0].scrollTo(x, y);
+        };
+    }
+    enableScrolling() {
+        chat_area[0].onscroll = function () { };
     }
 }

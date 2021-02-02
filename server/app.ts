@@ -38,17 +38,17 @@ io.on("connection", (socket: Socket): void => {
 
   socket.on("message", async (message: models.MessageBody) => {
     console.log(message);
-    
+
     let msg = new models.Message({
       content: message.content,
       sender: message.sender,
       timestamp: message.timestamp
     });
-    
+
     await msg.save().catch(function (err): void {
       console.log(chalk.hex("#e84118")(err), "Message saved");
     });
-    
+
     io.sockets.emit("message", msg.toObject());
   });
 
@@ -99,6 +99,15 @@ io.on("connection", (socket: Socket): void => {
 
     io.sockets.emit("message edit", id, content);
   });
+
+  socket.on("delete", async (id: string) => {
+    await models.Message.findByIdAndRemove(id).catch(err => {
+      console.log(chalk.hex("#e84118")(err), "Message edit");
+      socket.emit("error", err);
+    });
+
+    io.sockets.emit("delete", id);
+  });
 });
 
 app.use(express.static(path.join(__dirname, "public")), cors());
@@ -128,4 +137,4 @@ app.get("/clear", (req: Request, res: Response, next: NextFunction) => {
   res.sendStatus(200);
 });
 
-server.listen(5550);
+server.listen(52052);

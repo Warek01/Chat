@@ -104,6 +104,13 @@ io.on("connection", (socket) => {
         });
         io.sockets.emit("message edit", id, content);
     });
+    socket.on("delete", async (id) => {
+        await models.Message.findByIdAndRemove(id).catch(err => {
+            console.log(chalk_1.default.hex("#e84118")(err), "Message edit");
+            socket.emit("error", err);
+        });
+        io.sockets.emit("delete", id);
+    });
 });
 app.use(express_1.default.static(path_1.default.join(__dirname, "public")), cors_1.default());
 app.get("/messages", (req, res, next) => { });
@@ -127,4 +134,4 @@ app.get("/clear", (req, res, next) => {
     }
     res.sendStatus(200);
 });
-server.listen(5550);
+server.listen(52052);

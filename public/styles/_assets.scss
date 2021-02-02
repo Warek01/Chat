@@ -56,15 +56,15 @@ button {
 .context-menu {
   position: absolute;
   display: flex;
-  width: 300px;
+  width: auto;
+  padding: 2px 30px;
   height: 30px;
   border-radius: 5px;
-  justify-content: space-evenly;
   align-items: center;
   background-color: #b2bec3;
   font-size: 10px;
   cursor: default;
-  z-index: 10;
+  z-index: 100;
 
   &.right-side::after {
     content: "";
@@ -73,6 +73,7 @@ button {
     bottom: -5px;
     width: 10px;
     height: 10px;
+    cursor: default;
     transform: rotateZ(45deg);
     background-color: #b2bec3;
   }
@@ -88,22 +89,28 @@ button {
     background-color: #b2bec3;
   }
 
-  &>span {
+  span {
     position: relative;
     display: inline-flex;
-  }
-  
-  &:not(.button-disabled) {
-    cursor: pointer;
 
-    &:hover {
-      // text-decoration: underline;
-      z-index: 100;
+    &:not(:first-of-type) {
+      margin-left: 15px;
+    }
+
+    &:not(.button-disabled) {
+      cursor: pointer;
+  
+      &:hover {
+        text-decoration: underline;
+        z-index: 100;
+      }
     }
   }
+  
 
   .button-disabled {
-    color: #9f9f9f;
+    display: none;
+    // color: #9f9f9f;
     cursor: default;
     pointer-events: none;
   }
