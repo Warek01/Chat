@@ -24,5 +24,9 @@ exports.Message = mongoose_1.model("message", new mongoose_1.Schema({
         type: Boolean,
         default: false,
         required: false
+    },
+    buffer: {
+        type: [Number],
+        required: false
     }
 }), "messages");

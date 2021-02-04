@@ -1,6 +1,6 @@
 "use strict";
 const socket = io();
-const login_form = $("#login-wrapper"), login_input = $("#username"), chat_form = $("#chat-wrapper"), chat_input = $("#chat-input"), chat_area = $("#chat-area"), dropdown = $("#dropdown"), user_field = $("#user"), edit_user_btn = $("#edit-user"), logout_btn = $("#change-username"), advanced_tab_btn = $("#toggle-advanced-tab"), advanced_tab = $("#advanced-tab");
+const login_form = $("#login-wrapper"), login_input = $("#username"), chat_form = $("#chat-wrapper"), chat_input = $("#chat-input"), chat_area = $("#chat-area"), dropdown = $("#dropdown"), user_field = $("#user"), edit_user_btn = $("#edit-user"), send_photo_btn = $("#photoBtn"), logout_btn = $("#change-username"), advanced_tab_btn = $("#toggle-advanced-tab"), advanced_tab = $("#advanced-tab");
 let currentUser, previousUser, contextMenu, elementsActive = {
     changeUserDropdown: false,
     advancedTab: false,
@@ -95,15 +95,17 @@ socket
 })
     .on("message edit", (id, content) => {
     let message = findMessage(id);
-    if (message)
+    if (message) {
         message
             .find(".content")
-            .text(content)
-            .css("margin-bottom", 10)
-            .append($("<span>", {
-            html: "Edited",
-            class: "edited-mark"
-        }));
+            .html(replaceWithAnchor(content))
+            .css("margin-bottom", 10);
+        if (message.find("edited-mark").length === 0)
+            message.append($("<span>", {
+                html: "Edited",
+                class: "edited-mark"
+            }));
+    }
     else
         throw new Error(`Message with id "${id}" not found`);
 })
@@ -116,6 +118,9 @@ socket
         message.remove();
     else
         throw new Error(`Message with id "${id}" not found`);
+})
+    .on("image", (message) => {
+    createMessage(message);
 });
 $(window).on({
     click: function (event) {
@@ -149,6 +154,10 @@ $(window).on({
     unload: function (event) {
         socket.emit("user disconnected", currentUser);
     }
+});
+send_photo_btn.click(function (event) {
+    const imgInput = $("#photoInput");
+    imgInput.trigger("click");
 });
 // Functions
 function removeCookie(cookie) {
@@ -209,6 +218,29 @@ function sendMessage() {
         socket.emit("message", body);
     }
 }
+// function sendPhoto(): void {
+//   const files: FileList | null = ($("#photoInput")[0] as HTMLInputElement).files;
+//   if (files!.length > 0) {
+//     const reader = new FileReader();
+//     reader.onerror = function (err) {
+//       console.warn("Reader error", err);
+//     }
+//     reader.onloadstart = function() {
+//       console.log("Image processing started");
+//     }
+//     reader.onloadend = function() {
+//       console.log("Image processing ended");
+//     }
+//     reader.onload = function () {
+//       // const bytes = new Uint8Array(this.result as any);
+//       // const processed = bytes.join(" ");
+//       const toBase64 = (this.result as string)?.replace(/.*base64,/, '');
+//       console.log(toBase64);
+//       socket.emit("image", toBase64.slice(0, 200), Date.now(), currentUser);
+//     }
+//     reader.readAsDataURL(files![0]);
+//   }
+// }
 function init() {
     clearMessagehistory(false);
     fetch("/init")
@@ -262,33 +294,47 @@ function createConnectionMessage(name, dissconected = false) {
         container.append(content).appendTo(chat_area);
 }
 function createMessage(message) {
-    let container = $("<div>", { class: "message-wrap" }), _message = $("<div>", { class: "message" }), content = $("<span>", {
-        html: replaceWithAnchor(message.content.trim()),
-        class: "content"
-    }), sender = $("<span>", {
-        html: message.sender,
-        class: "sender"
-    }), date = $("<span>", {
-        html: getHour(message.timestamp),
-        class: "date"
-    });
-    if (message.sender === currentUser) {
-        container.addClass("sent");
-        _message.append(sender, date, content);
+    let container = $("<div>", { class: "message-wrap" }), _message = $("<div>", { class: "message" });
+    if (message.type === "image") {
+        let bufferStr = message.content.split(" ");
+        let buffer = Buffer.from(bufferStr);
+        container.addClass("image");
+        let content = $("<img>", {
+            src: URL.createObjectURL(buffer),
+            class: "content-img"
+        });
+        _message.append(content);
     }
     else {
-        _message.append(content, sender, date);
+        let content = $("<span>", {
+            html: replaceWithAnchor(message.content.trim()),
+            class: "content"
+        }), sender = $("<span>", {
+            html: message.sender,
+            class: "sender"
+        }), date = $("<span>", {
+            html: getHour(message.timestamp),
+            class: "date"
+        });
+        if (message.sender === currentUser) {
+            _message.append(sender, date, content);
+        }
+        else {
+            _message.append(content, sender, date);
+        }
+        if (message.edited) {
+            let editContainer = $("<span>", {
+                html: "Edited",
+                class: "edited-mark"
+            });
+            container.css("margin-bottom", 10).append(editContainer);
+        }
     }
+    if (message.sender === currentUser)
+        container.addClass("sent");
+    container.attr("ms_id", message._id);
     container.append(_message);
     chat_area.append(container);
-    container.attr("ms_id", message._id);
-    if (message.edited) {
-        let editContainer = $("<span>", {
-            html: "Edited",
-            class: "edited-mark"
-        });
-        container.css("margin-bottom", 10).append(editContainer);
-    }
 }
 function clearMessagehistory(clearFromDb = true) {
     if (clearFromDb) {
@@ -392,13 +438,16 @@ class ContextMenu {
         window.open(this.target.textContent);
     }
     edit() {
+        let initilaText = this.contentElement.text(), initialHtml = this.contentElement.html();
         this.contentElement.attr("contenteditable", "true").trigger("focus");
         const endEdit = () => {
-            if (this.contentElement.text().trim() != "") {
-                socket.emit("message edit", this.id, this.contentElement.text().trim());
-                this.contentElement.attr("contenteditable", "false");
-                this.contentElement.off("focusout", endEdit);
-            }
+            if (this.contentElement.text().trim() != "" &&
+                initilaText !== this.contentElement.text())
+                socket.emit("message edit", this.id, this.contentElement.text());
+            else
+                this.contentElement.html(initialHtml);
+            this.contentElement.attr("contenteditable", "false");
+            this.contentElement.off("focusout", endEdit);
         };
         this.contentElement.focusout(endEdit);
     }

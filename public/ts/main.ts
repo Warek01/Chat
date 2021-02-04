@@ -9,6 +9,7 @@ const login_form: JQuery = $("#login-wrapper"),
   dropdown: JQuery = $("#dropdown"),
   user_field: JQuery = $("#user"),
   edit_user_btn: JQuery = $("#edit-user"),
+  send_photo_btn: JQuery = $("#photoBtn"),
   logout_btn: JQuery = $("#change-username"),
   advanced_tab_btn: JQuery = $("#toggle-advanced-tab"),
   advanced_tab: JQuery = $("#advanced-tab");
@@ -117,18 +118,20 @@ socket
   })
   .on("message edit", (id: string, content: string) => {
     let message = findMessage(id);
-    if (message)
+    if (message) {
       message
         .find(".content")
-        .text(content)
-        .css("margin-bottom", 10)
-        .append(
+        .html(replaceWithAnchor(content))
+        .css("margin-bottom", 10);
+
+      if (message.find("edited-mark").length === 0)
+        message.append(
           $("<span>", {
             html: "Edited",
             class: "edited-mark"
           })
         );
-    else throw new Error(`Message with id "${id}" not found`);
+    } else throw new Error(`Message with id "${id}" not found`);
   })
   .on("clear logs", () => {
     $(".connection").remove();
@@ -137,6 +140,9 @@ socket
     let message = findMessage(id);
     if (message) message.remove();
     else throw new Error(`Message with id "${id}" not found`);
+  })
+  .on("image", (message: MessageBody) => {
+    createMessage(message);
   });
 
 $(window).on({
@@ -183,6 +189,12 @@ $(window).on({
   unload: function (event): void {
     socket.emit("user disconnected", currentUser);
   }
+});
+
+send_photo_btn.click(function (event: JQuery.ClickEvent): void {
+  const imgInput = $("#photoInput");
+
+  imgInput.trigger("click");
 });
 
 // Functions
@@ -260,6 +272,36 @@ function sendMessage(): void {
     socket.emit("message", body);
   }
 }
+
+// function sendPhoto(): void {
+//   const files: FileList | null = ($("#photoInput")[0] as HTMLInputElement).files;
+
+//   if (files!.length > 0) {
+//     const reader = new FileReader();
+    
+//     reader.onerror = function (err) {
+//       console.warn("Reader error", err);
+//     }
+
+//     reader.onloadstart = function() {
+//       console.log("Image processing started");
+//     }
+
+//     reader.onloadend = function() {
+//       console.log("Image processing ended");
+//     }
+    
+//     reader.onload = function () {
+//       // const bytes = new Uint8Array(this.result as any);
+//       // const processed = bytes.join(" ");
+//       const toBase64 = (this.result as string)?.replace(/.*base64,/, '');
+//       console.log(toBase64);
+//       socket.emit("image", toBase64.slice(0, 200), Date.now(), currentUser);
+//     }
+
+//     reader.readAsDataURL(files![0]);
+//   }
+// }
 
 function init(): void {
   clearMessagehistory(false);
@@ -343,39 +385,56 @@ function createConnectionMessage(
 
 function createMessage(message: MessageBody): void {
   let container = $("<div>", { class: "message-wrap" }),
-    _message = $("<div>", { class: "message" }),
-    content = $("<span>", {
-      html: replaceWithAnchor(message.content.trim()),
-      class: "content"
-    }),
-    sender = $("<span>", {
-      html: message.sender,
-      class: "sender"
-    }),
-    date = $("<span>", {
-      html: getHour(message.timestamp),
-      class: "date"
+    _message = $("<div>", { class: "message" });
+
+  if (message.type === "image") {
+    let bufferStr: string[] = message.content.split(" ");
+
+    let buffer = Buffer.from(bufferStr);
+
+    container.addClass("image");
+
+    let content = $("<img>", {
+      src: URL.createObjectURL(buffer),
+      class: "content-img"
     });
 
-  if (message.sender === currentUser) {
-    container.addClass("sent");
-    _message.append(sender, date, content);
+    _message.append(content);
   } else {
-    _message.append(content, sender, date);
+    let content = $("<span>", {
+        html: replaceWithAnchor(message.content.trim()),
+        class: "content"
+      }),
+      sender = $("<span>", {
+        html: message.sender,
+        class: "sender"
+      }),
+      date = $("<span>", {
+        html: getHour(message.timestamp),
+        class: "date"
+      });
+
+    if (message.sender === currentUser) {
+      _message.append(sender, date, content);
+    } else {
+      _message.append(content, sender, date);
+    }
+
+    if (message.edited) {
+      let editContainer = $("<span>", {
+        html: "Edited",
+        class: "edited-mark"
+      });
+
+      container.css("margin-bottom", 10).append(editContainer);
+    }
   }
 
+  if (message.sender === currentUser) container.addClass("sent");
+
+  container.attr("ms_id", message._id as string);
   container.append(_message);
   chat_area.append(container);
-  container.attr("ms_id", message._id as string);
-
-  if (message.edited) {
-    let editContainer = $("<span>", {
-      html: "Edited",
-      class: "edited-mark"
-    });
-
-    container.css("margin-bottom", 10).append(editContainer);
-  }
 }
 
 function clearMessagehistory(clearFromDb: boolean = true): void {
@@ -515,15 +574,20 @@ class ContextMenu {
   }
 
   edit(): void {
+    let initilaText: string = this.contentElement.text(),
+      initialHtml: string = this.contentElement.html();
     this.contentElement.attr("contenteditable", "true").trigger("focus");
 
     const endEdit = () => {
-      if (this.contentElement.text().trim() != "") {
-        socket.emit("message edit", this.id, this.contentElement.text().trim());
-        this.contentElement.attr("contenteditable", "false");
+      if (
+        this.contentElement.text().trim() != "" &&
+        initilaText !== this.contentElement.text()
+      )
+        socket.emit("message edit", this.id, this.contentElement.text());
+      else this.contentElement.html(initialHtml);
 
-        this.contentElement.off("focusout", endEdit);
-      }
+      this.contentElement.attr("contenteditable", "false");
+      this.contentElement.off("focusout", endEdit);
     };
 
     this.contentElement.focusout(endEdit);

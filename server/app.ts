@@ -1,4 +1,11 @@
-import express, { Application, Request, Response, NextFunction } from "express";
+import express, {
+  Application,
+  Request,
+  Response,
+  NextFunction,
+  response,
+  raw
+} from "express";
 import { connect, connection } from "mongoose";
 import { createServer } from "http";
 import chalk from "chalk";
@@ -6,6 +13,8 @@ import cors from "cors";
 import path from "path";
 import * as models from "./models";
 import { Socket, Server } from "socket.io";
+import fileUpload from "express-fileupload";
+import { timeStamp } from "console";
 
 const app: Application = express(),
   server = createServer(app),
@@ -35,6 +44,11 @@ connection
 // Socket.io (websocket) connection
 io.on("connection", (socket: Socket): void => {
   console.log(chalk.hex("#95a5a6")("Client connected!"));
+
+  socket.on("error", err => {
+    console.log("Socket error");
+    console.log(chalk.hex("#e84118")(err));
+  });
 
   socket.on("message", async (message: models.MessageBody) => {
     console.log(message);
@@ -100,6 +114,27 @@ io.on("connection", (socket: Socket): void => {
     io.sockets.emit("message edit", id, content);
   });
 
+  socket.on(
+    "image",
+    async (rawImg: any, timestamp: number, sender: string) => {
+      // let buffer: Uint8Array = new Uint8Array(rawImg.split(" ") as any);
+      console.log(rawImg);
+
+      // for (let elem of Buffer.from(img)) buffer.push(elem.toString());
+
+      // let savedImg = new models.Message({
+      //   type: "image",
+      //   timestamp: timestamp,
+      //   sender: sender,
+      //   content: buffer.join(" ")
+      // });
+
+      // await savedImg.save();
+
+      // io.sockets.emit("image", savedImg);
+    }
+  );
+
   socket.on("delete", async (id: string) => {
     await models.Message.findByIdAndRemove(id).catch(err => {
       console.log(chalk.hex("#e84118")(err), "Message edit");
@@ -127,6 +162,11 @@ app.get("/init", async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
+app.post("/img", fileUpload(), (req, res, next) => {
+  /////////////////////////////
+  console.log(req.files);
+});
+
 // Clear db history
 app.get("/clear", (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -137,4 +177,4 @@ app.get("/clear", (req: Request, res: Response, next: NextFunction) => {
   res.sendStatus(200);
 });
 
-server.listen(52052);
+server.listen(5555);

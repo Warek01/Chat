@@ -14,13 +14,16 @@
     "@types/chalk": "^2.2.0",
     "@types/cors": "^2.8.8",
     "@types/express": "^4.17.9",
+    "@types/express-fileupload": "^1.1.6",
     "@types/jquery": "^3.5.4",
     "@types/mongoose": "^5.10.1",
+    "@types/multiparty": "0.0.32",
     "@types/node": "^14.14.10",
     "@types/socket.io": "^2.1.11",
     "chalk": "^4.1.0",
     "cors": "^2.8.5",
     "express": "^4.17.1",
+    "express-fileupload": "^1.2.1",
     "mongoose": "^5.10.19",
     "socket.io": "^3.0.3"
   }

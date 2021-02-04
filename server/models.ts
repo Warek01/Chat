@@ -22,6 +22,10 @@ export const Message = model("message", new Schema({
     type: Boolean,
     default: false,
     required: false
+  },
+  buffer: {
+    type: [Number],
+    required: false
   }
 }), "messages");
 

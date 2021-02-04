@@ -81,6 +81,11 @@
     margin-left: 10px;
     height: 30px;
   }
+
+  #photoBtn {
+    margin-left: 5px;
+    height: 30px;
+  }
 }
 
 .message-wrap {
@@ -128,15 +133,15 @@
       margin: 0 4px 0 10px;
     }
   }
-  
+
   a {
     color: #f1c40f;
-    
+
     &:hover {
       color: lighten(#f1c40f, 30);
     }
   }
-  
+
   .date {
     position: relative;
     display: inline-block;
@@ -183,13 +188,12 @@
     .sender {
       margin-right: 8px;
     }
-    
+
     .date {
       top: calc(100% - 14px);
       left: 0;
       margin-right: 10px;
     }
-
   }
 
   &:not(.sent) {
@@ -202,11 +206,22 @@
       left: 20px;
     }
   }
-  
+
   .edited-mark {
     position: absolute;
     font-size: 8px;
     bottom: -10px;
+  }
+
+  &.image {
+
+    .message {
+
+      .content-img {
+        width: 192px * 2;
+        height: 108px * 2;
+      }
+    }
   }
 }
 

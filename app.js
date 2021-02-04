@@ -29,6 +29,7 @@ const chalk_1 = __importDefault(require("chalk"));
 const cors_1 = __importDefault(require("cors"));
 const path_1 = __importDefault(require("path"));
 const models = __importStar(require("./models"));
+const express_fileupload_1 = __importDefault(require("express-fileupload"));
 const app = express_1.default(), server = http_1.createServer(app), io = require("socket.io")(server);
 require("mongoose").Promise = global.Promise;
 // Open mongodb connection
@@ -51,6 +52,10 @@ mongoose_1.connection
 // Socket.io (websocket) connection
 io.on("connection", (socket) => {
     console.log(chalk_1.default.hex("#95a5a6")("Client connected!"));
+    socket.on("error", err => {
+        console.log("Socket error");
+        console.log(chalk_1.default.hex("#e84118")(err));
+    });
     socket.on("message", async (message) => {
         console.log(message);
         let msg = new models.Message({
@@ -104,6 +109,19 @@ io.on("connection", (socket) => {
         });
         io.sockets.emit("message edit", id, content);
     });
+    socket.on("image", async (rawImg, timestamp, sender) => {
+        // let buffer: Uint8Array = new Uint8Array(rawImg.split(" ") as any);
+        console.log(rawImg);
+        // for (let elem of Buffer.from(img)) buffer.push(elem.toString());
+        // let savedImg = new models.Message({
+        //   type: "image",
+        //   timestamp: timestamp,
+        //   sender: sender,
+        //   content: buffer.join(" ")
+        // });
+        // await savedImg.save();
+        // io.sockets.emit("image", savedImg);
+    });
     socket.on("delete", async (id) => {
         await models.Message.findByIdAndRemove(id).catch(err => {
             console.log(chalk_1.default.hex("#e84118")(err), "Message edit");
@@ -124,6 +142,10 @@ app.get("/init", async (req, res, next) => {
         return res.sendStatus(500);
     }
 });
+app.post("/img", express_fileupload_1.default(), (req, res, next) => {
+    /////////////////////////////
+    console.log(req.files);
+});
 // Clear db history
 app.get("/clear", (req, res, next) => {
     try {
@@ -134,4 +156,4 @@ app.get("/clear", (req, res, next) => {
     }
     res.sendStatus(200);
 });
-server.listen(52052);
+server.listen(5555);

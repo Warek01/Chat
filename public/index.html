@@ -74,9 +74,13 @@
         <button id="sendBtn" onclick="sendMessage()" class="dark">
           Send
         </button>
+        <button id="photoBtn" class="dark">
+          Photo
+        </button>
       </div>
     </div>
   </div>
+  <input type="file" accept="image/*" id="photoInput" onchange="sendPhoto(event)"></input>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="./scripts/jquery.js"></script>

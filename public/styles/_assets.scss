@@ -115,3 +115,9 @@ button {
     pointer-events: none;
   }
 }
+
+#photoInput {
+  width: 0;
+  height: 0;
+  filter: opacity(0);
+}
