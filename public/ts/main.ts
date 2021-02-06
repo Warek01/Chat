@@ -36,7 +36,12 @@ $(document).ready(function (event): void {
     user_field.text(currentUser);
     init();
     edit_user_btn.css("pointer-events", "all");
-    socket.emit("user connected", currentUser);
+
+    socket.emit("connect_log", {
+      type: "connect",
+      username: currentUser,
+      timestamp: Date.now()
+    } as ConnectionLog);
   } else {
     $("#login").click(login);
     login_form.css("display", "flex");
@@ -90,33 +95,22 @@ chat_input.keypress(function (event): void {
 
 // Global listeners
 socket
-  .on("message", (message: MessageBody): void => {
-    createMessage(message);
+  .on("text_message", (message: TextMessage): void => {
+    createTextMsg(message);
   })
-  .on("message id", (id: string) => {
-    for (let message of $(".message-wrap")) {
-      if (!$(message).attr("ms_id")) {
-        $(message).attr("ms_id", id);
-        break;
-      }
-    }
-  })
-  .on("user connected", (user: string): void => {
-    createConnectionMessage(user);
-  })
-  .on("user disconnected", (user: string): void => {
-    createConnectionMessage(user, true);
+  .on("connect_log", (obj: ConnectionLog): void => {
+    createConnectionLog(obj);
   })
   .on("error", (err: Error): void => {
     console.warn("Socket Error: ", err);
   })
-  .on("clear history", () => {
-    clearMessagehistory(false);
+  .on("clear_history", () => {
+    clearMsgHistory(false);
   })
   .on("reload", () => {
     location.reload();
   })
-  .on("message edit", (id: string, content: string) => {
+  .on("message_edit", (id: string, content: string) => {
     let message = findMessage(id);
     if (message) {
       message
@@ -133,17 +127,15 @@ socket
         );
     } else throw new Error(`Message with id "${id}" not found`);
   })
-  .on("clear logs", () => {
+  .on("clear_logs", () => {
     $(".connection").remove();
   })
-  .on("delete", (id: string) => {
+  .on("delete_text_message", (id: string) => {
     let message = findMessage(id);
     if (message) message.remove();
     else throw new Error(`Message with id "${id}" not found`);
   })
-  .on("image", (message: MessageBody) => {
-    createMessage(message);
-  });
+  .on("image", (image: Image) => {});
 
 $(window).on({
   click: function (event): void {
@@ -187,7 +179,11 @@ $(window).on({
   },
 
   unload: function (event): void {
-    socket.emit("user disconnected", currentUser);
+    socket.emit("connect_log", {
+      type: "disconnect",
+      username: currentUser,
+      timestamp: Date.now()
+    } as ConnectionLog);
   }
 });
 
@@ -229,13 +225,21 @@ function login(): void {
     if ($(message).find(".sender").text() === currentUser)
       $(message).addClass("sent").find(".sender").prependTo(message);
 
-  socket.emit("user connected", currentUser);
+  socket.emit("connect_log", {
+    type: "connect",
+    username: currentUser
+  } as ConnectionLog);
 }
 
 function logout(): void {
   console.assert(currentUser !== null, "User in null");
 
-  socket.emit("user disconnected", currentUser);
+  socket.emit("connect_log", {
+    type: "disconnect",
+    username: currentUser,
+    timestamp: Date.now()
+  } as ConnectionLog);
+
   previousUser = currentUser;
   currentUser = null;
   setCookie("previousUser", previousUser as string);
@@ -261,7 +265,7 @@ function logout(): void {
 
 function sendMessage(): void {
   if (chat_input.val()!.toString().trim() !== "") {
-    const body: MessageBody = {
+    const body: TextMessage = {
       content: chat_input.val() as string,
       sender: currentUser as string,
       timestamp: Date.now() as number
@@ -269,54 +273,29 @@ function sendMessage(): void {
 
     chat_input.val("");
 
-    socket.emit("message", body);
+    socket.emit("text_message", body);
   }
 }
 
-// function sendPhoto(): void {
-//   const files: FileList | null = ($("#photoInput")[0] as HTMLInputElement).files;
+async function init(): Promise<any> {
+  clearMsgHistory(false);
 
-//   if (files!.length > 0) {
-//     const reader = new FileReader();
-    
-//     reader.onerror = function (err) {
-//       console.warn("Reader error", err);
-//     }
+  let req: Response = await fetch("/init"),
+    res: (TextMessage | ConnectionLog | Image)[] = await req.json();
 
-//     reader.onloadstart = function() {
-//       console.log("Image processing started");
-//     }
-
-//     reader.onloadend = function() {
-//       console.log("Image processing ended");
-//     }
-    
-//     reader.onload = function () {
-//       // const bytes = new Uint8Array(this.result as any);
-//       // const processed = bytes.join(" ");
-//       const toBase64 = (this.result as string)?.replace(/.*base64,/, '');
-//       console.log(toBase64);
-//       socket.emit("image", toBase64.slice(0, 200), Date.now(), currentUser);
-//     }
-
-//     reader.readAsDataURL(files![0]);
-//   }
-// }
-
-function init(): void {
-  clearMessagehistory(false);
-
-  fetch("/init")
-    .then(res => res.json())
-    .then(res => {
-      for (const message of JSON.parse(res)) {
-        if (message.type === "message") createMessage(message);
-        else if (message.type === "connected")
-          createConnectionMessage(message.sender);
-        else if (message.type === "disconnected")
-          createConnectionMessage(message.sender, true);
-      }
-    });
+  for (let em of res) {
+    switch (em.name) {
+      case "text_message":
+        createTextMsg(em as TextMessage);
+        break;
+      case "connection_log":
+        createConnectionLog(em as ConnectionLog);
+        break;
+      case "image":
+        // ---
+        break;
+    }
+  }
 }
 
 // https://stackoverflow.com/questions/8667070/javascript-regular-expression-to-validate-url
@@ -361,73 +340,72 @@ function validatePreviousUserBtn(): void {
 }
 
 // Messages area
-interface MessageBody {
+interface TextMessage {
   content: string;
   sender: string;
   timestamp: number;
-  type?: string;
-  _id?: string | number;
+  _id?: string;
   edited?: boolean;
+  name?: string;
 }
 
-function createConnectionMessage(
-  name: string,
-  dissconected: boolean = false
-): void {
+interface ConnectionLog {
+  type: string;
+  username: string;
+  timestamp: number;
+  _id?: string;
+  name?: string;
+}
+
+interface Image {
+  sender: string;
+  image_name: string;
+  timestamp: number;
+  _id?: string;
+  name?: string;
+}
+
+function createConnectionLog(obj: ConnectionLog): void {
   let container = $("<div>", { class: "connection" }),
     content = $("<p>", {
-      html: `${name} ${dissconected ? "left" : "joined"} chat`,
+      html: `${obj.username} ${obj.type === "disconnect" ? "left" : "joined"} chat`,
       class: "username"
     });
 
-  if (currentUser !== name) container.append(content).appendTo(chat_area);
+  // if (currentUser !== obj.username)
+    container.append(content).appendTo(chat_area);
 }
 
-function createMessage(message: MessageBody): void {
+function createTextMsg(message: TextMessage): void {
   let container = $("<div>", { class: "message-wrap" }),
     _message = $("<div>", { class: "message" });
 
-  if (message.type === "image") {
-    let bufferStr: string[] = message.content.split(" ");
-
-    let buffer = Buffer.from(bufferStr);
-
-    container.addClass("image");
-
-    let content = $("<img>", {
-      src: URL.createObjectURL(buffer),
-      class: "content-img"
+  let content = $("<span>", {
+      html: replaceWithAnchor(message.content.trim()),
+      class: "content"
+    }),
+    sender = $("<span>", {
+      html: message.sender,
+      class: "sender"
+    }),
+    date = $("<span>", {
+      html: getHour(message.timestamp),
+      class: "date"
     });
 
-    _message.append(content);
+  if (message.sender === currentUser) {
+    _message.append(sender, date, content);
   } else {
-    let content = $("<span>", {
-        html: replaceWithAnchor(message.content.trim()),
-        class: "content"
-      }),
-      sender = $("<span>", {
-        html: message.sender,
-        class: "sender"
-      }),
-      date = $("<span>", {
-        html: getHour(message.timestamp),
-        class: "date"
-      });
+    _message.append(content, sender, date);
+  }
 
-    if (message.sender === currentUser) {
-      _message.append(sender, date, content);
-    } else {
-      _message.append(content, sender, date);
-    }
+  if (message.edited) {
+    let editContainer = $("<span>", {
+      html: "Edited",
+      class: "edited-mark"
+    });
 
-    if (message.edited) {
-      let editContainer = $("<span>", {
-        html: "Edited",
-        class: "edited-mark"
-      });
-
-      container.css("margin-bottom", 10).append(editContainer);
-    }
+    container.css("margin-bottom", 10).append(editContainer);
   }
 
   if (message.sender === currentUser) container.addClass("sent");
@@ -437,19 +415,19 @@ function createMessage(message: MessageBody): void {
   chat_area.append(container);
 }
 
-function clearMessagehistory(clearFromDb: boolean = true): void {
+function clearMsgHistory(clearFromDb: boolean = true): void {
   if (clearFromDb) {
     fetch("/clear")
       .then(res => res.text)
       .then(res => console.log(res));
-    socket.emit("clear history");
+    socket.emit("clear_history");
   }
 
   chat_area.children().remove();
 }
 
 function clearAllLogs(clearFromDb: boolean = true): void {
-  if (clearFromDb) socket.emit("clear logs");
+  if (clearFromDb) socket.emit("clear_logs");
   else $(".connection").remove();
 }
 
@@ -562,7 +540,7 @@ class ContextMenu {
   }
 
   delete(): void {
-    socket.emit("delete", this.id);
+    socket.emit("delete_text_message", this.id);
   }
 
   openLink(): void {
@@ -583,7 +561,7 @@ class ContextMenu {
         this.contentElement.text().trim() != "" &&
         initilaText !== this.contentElement.text()
       )
-        socket.emit("message edit", this.id, this.contentElement.text());
+        socket.emit("message_edit", this.id, this.contentElement.text());
       else this.contentElement.html(initialHtml);
 
       this.contentElement.attr("contenteditable", "false");

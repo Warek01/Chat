@@ -12,7 +12,11 @@ $(document).ready(function (event) {
         user_field.text(currentUser);
         init();
         edit_user_btn.css("pointer-events", "all");
-        socket.emit("user connected", currentUser);
+        socket.emit("connect_log", {
+            type: "connect",
+            username: currentUser,
+            timestamp: Date.now()
+        });
     }
     else {
         $("#login").click(login);
@@ -67,33 +71,22 @@ chat_input.keypress(function (event) {
 });
 // Global listeners
 socket
-    .on("message", (message) => {
-    createMessage(message);
+    .on("text_message", (message) => {
+    createTextMsg(message);
 })
-    .on("message id", (id) => {
-    for (let message of $(".message-wrap")) {
-        if (!$(message).attr("ms_id")) {
-            $(message).attr("ms_id", id);
-            break;
-        }
-    }
-})
-    .on("user connected", (user) => {
-    createConnectionMessage(user);
-})
-    .on("user disconnected", (user) => {
-    createConnectionMessage(user, true);
+    .on("connect_log", (obj) => {
+    createConnectionLog(obj);
 })
     .on("error", (err) => {
     console.warn("Socket Error: ", err);
 })
-    .on("clear history", () => {
-    clearMessagehistory(false);
+    .on("clear_history", () => {
+    clearMsgHistory(false);
 })
     .on("reload", () => {
     location.reload();
 })
-    .on("message edit", (id, content) => {
+    .on("message_edit", (id, content) => {
     let message = findMessage(id);
     if (message) {
         message
@@ -109,19 +102,17 @@ socket
     else
         throw new Error(`Message with id "${id}" not found`);
 })
-    .on("clear logs", () => {
+    .on("clear_logs", () => {
     $(".connection").remove();
 })
-    .on("delete", (id) => {
+    .on("delete_text_message", (id) => {
     let message = findMessage(id);
     if (message)
         message.remove();
     else
         throw new Error(`Message with id "${id}" not found`);
 })
-    .on("image", (message) => {
-    createMessage(message);
-});
+    .on("image", (image) => { });
 $(window).on({
     click: function (event) {
         if (elementsActive.userContextMenu &&
@@ -152,7 +143,11 @@ $(window).on({
         }
     },
     unload: function (event) {
-        socket.emit("user disconnected", currentUser);
+        socket.emit("connect_log", {
+            type: "disconnect",
+            username: currentUser,
+            timestamp: Date.now()
+        });
     }
 });
 send_photo_btn.click(function (event) {
@@ -183,11 +178,18 @@ function login() {
     for (let message of $(".message"))
         if ($(message).find(".sender").text() === currentUser)
             $(message).addClass("sent").find(".sender").prependTo(message);
-    socket.emit("user connected", currentUser);
+    socket.emit("connect_log", {
+        type: "connect",
+        username: currentUser
+    });
 }
 function logout() {
     console.assert(currentUser !== null, "User in null");
-    socket.emit("user disconnected", currentUser);
+    socket.emit("connect_log", {
+        type: "disconnect",
+        username: currentUser,
+        timestamp: Date.now()
+    });
     previousUser = currentUser;
     currentUser = null;
     setCookie("previousUser", previousUser);
@@ -215,46 +217,25 @@ function sendMessage() {
             timestamp: Date.now()
         };
         chat_input.val("");
-        socket.emit("message", body);
+        socket.emit("text_message", body);
     }
 }
-// function sendPhoto(): void {
-//   const files: FileList | null = ($("#photoInput")[0] as HTMLInputElement).files;
-//   if (files!.length > 0) {
-//     const reader = new FileReader();
-//     reader.onerror = function (err) {
-//       console.warn("Reader error", err);
-//     }
-//     reader.onloadstart = function() {
-//       console.log("Image processing started");
-//     }
-//     reader.onloadend = function() {
-//       console.log("Image processing ended");
-//     }
-//     reader.onload = function () {
-//       // const bytes = new Uint8Array(this.result as any);
-//       // const processed = bytes.join(" ");
-//       const toBase64 = (this.result as string)?.replace(/.*base64,/, '');
-//       console.log(toBase64);
-//       socket.emit("image", toBase64.slice(0, 200), Date.now(), currentUser);
-//     }
-//     reader.readAsDataURL(files![0]);
-//   }
-// }
-function init() {
-    clearMessagehistory(false);
-    fetch("/init")
-        .then(res => res.json())
-        .then(res => {
-        for (const message of JSON.parse(res)) {
-            if (message.type === "message")
-                createMessage(message);
-            else if (message.type === "connected")
-                createConnectionMessage(message.sender);
-            else if (message.type === "disconnected")
-                createConnectionMessage(message.sender, true);
+async function init() {
+    clearMsgHistory(false);
+    let req = await fetch("/init"), res = await req.json();
+    for (let em of res) {
+        switch (em.name) {
+            case "text_message":
+                createTextMsg(em);
+                break;
+            case "connection_log":
+                createConnectionLog(em);
+                break;
+            case "image":
+                // ---
+                break;
         }
-    });
+    }
 }
 // https://stackoverflow.com/questions/8667070/javascript-regular-expression-to-validate-url
 function validateUrl(value) {
@@ -285,50 +266,38 @@ function validatePreviousUserBtn() {
     else
         $(".last-user").hide();
 }
-function createConnectionMessage(name, dissconected = false) {
+function createConnectionLog(obj) {
     let container = $("<div>", { class: "connection" }), content = $("<p>", {
-        html: `${name} ${dissconected ? "left" : "joined"} chat`,
+        html: `${obj.username} ${obj.type === "disconnect" ? "left" : "joined"} chat`,
         class: "username"
     });
-    if (currentUser !== name)
-        container.append(content).appendTo(chat_area);
+    // if (currentUser !== obj.username)
+    container.append(content).appendTo(chat_area);
 }
-function createMessage(message) {
+function createTextMsg(message) {
     let container = $("<div>", { class: "message-wrap" }), _message = $("<div>", { class: "message" });
-    if (message.type === "image") {
-        let bufferStr = message.content.split(" ");
-        let buffer = Buffer.from(bufferStr);
-        container.addClass("image");
-        let content = $("<img>", {
-            src: URL.createObjectURL(buffer),
-            class: "content-img"
-        });
-        _message.append(content);
+    let content = $("<span>", {
+        html: replaceWithAnchor(message.content.trim()),
+        class: "content"
+    }), sender = $("<span>", {
+        html: message.sender,
+        class: "sender"
+    }), date = $("<span>", {
+        html: getHour(message.timestamp),
+        class: "date"
+    });
+    if (message.sender === currentUser) {
+        _message.append(sender, date, content);
     }
     else {
-        let content = $("<span>", {
-            html: replaceWithAnchor(message.content.trim()),
-            class: "content"
-        }), sender = $("<span>", {
-            html: message.sender,
-            class: "sender"
-        }), date = $("<span>", {
-            html: getHour(message.timestamp),
-            class: "date"
+        _message.append(content, sender, date);
+    }
+    if (message.edited) {
+        let editContainer = $("<span>", {
+            html: "Edited",
+            class: "edited-mark"
         });
-        if (message.sender === currentUser) {
-            _message.append(sender, date, content);
-        }
-        else {
-            _message.append(content, sender, date);
-        }
-        if (message.edited) {
-            let editContainer = $("<span>", {
-                html: "Edited",
-                class: "edited-mark"
-            });
-            container.css("margin-bottom", 10).append(editContainer);
-        }
+        container.css("margin-bottom", 10).append(editContainer);
     }
     if (message.sender === currentUser)
         container.addClass("sent");
@@ -336,18 +305,18 @@ function createMessage(message) {
     container.append(_message);
     chat_area.append(container);
 }
-function clearMessagehistory(clearFromDb = true) {
+function clearMsgHistory(clearFromDb = true) {
     if (clearFromDb) {
         fetch("/clear")
             .then(res => res.text)
             .then(res => console.log(res));
-        socket.emit("clear history");
+        socket.emit("clear_history");
     }
     chat_area.children().remove();
 }
 function clearAllLogs(clearFromDb = true) {
     if (clearFromDb)
-        socket.emit("clear logs");
+        socket.emit("clear_logs");
     else
         $(".connection").remove();
 }
@@ -429,7 +398,7 @@ class ContextMenu {
         tempElement.remove();
     }
     delete() {
-        socket.emit("delete", this.id);
+        socket.emit("delete_text_message", this.id);
     }
     openLink() {
         location.assign(this.target.textContent);
@@ -443,7 +412,7 @@ class ContextMenu {
         const endEdit = () => {
             if (this.contentElement.text().trim() != "" &&
                 initilaText !== this.contentElement.text())
-                socket.emit("message edit", this.id, this.contentElement.text());
+                socket.emit("message_edit", this.id, this.contentElement.text());
             else
                 this.contentElement.html(initialHtml);
             this.contentElement.attr("contenteditable", "false");

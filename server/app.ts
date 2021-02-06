@@ -1,20 +1,11 @@
-import express, {
-  Application,
-  Request,
-  Response,
-  NextFunction,
-  response,
-  raw
-} from "express";
-import { connect, connection } from "mongoose";
+import express, { Application, Request, Response, NextFunction } from "express";
+import { connect, connection, Document } from "mongoose";
 import { createServer } from "http";
 import chalk from "chalk";
 import cors from "cors";
 import path from "path";
-import * as models from "./models";
+import { TextMessage, ConnectionLog, Image } from "./models";
 import { Socket, Server } from "socket.io";
-import fileUpload from "express-fileupload";
-import { timeStamp } from "console";
 
 const app: Application = express(),
   server = createServer(app),
@@ -50,98 +41,62 @@ io.on("connection", (socket: Socket): void => {
     console.log(chalk.hex("#e84118")(err));
   });
 
-  socket.on("message", async (message: models.MessageBody) => {
+  socket.on("text_message", async (message: TextMessage) => {
     console.log(message);
 
-    let msg = new models.Message({
+    let msg = new TextMessage({
       content: message.content,
       sender: message.sender,
       timestamp: message.timestamp
-    });
+    } as TextMessage);
 
     await msg.save().catch(function (err): void {
       console.log(chalk.hex("#e84118")(err), "Message saved");
     });
 
-    io.sockets.emit("message", msg.toObject());
+    io.sockets.emit("text_message", msg.toObject());
   });
 
-  socket.on("user disconnected", (userName: string): void => {
-    socket.broadcast.emit("user disconnected", userName);
-    new models.Message({
-      sender: userName,
-      type: "disconnected"
-    })
-      .save()
-      .catch(function (err): void {
-        console.log(chalk.hex("#e84118")(err), "User disconnected");
-      });
+  socket.on("connect_log", async (obj: ConnectionLog) => {
+    await new ConnectionLog(obj).save().catch(logError(socket, "Connect Log"));
+    socket.broadcast.emit("connect_log", obj);
   });
 
-  socket.on("user connected", (userName: string): void => {
-    socket.broadcast.emit("user connected", userName);
-    new models.Message({
-      sender: userName,
-      type: "connected"
-    })
-      .save()
-      .catch(err => {
-        console.log(chalk.hex("#e84118")(err), "User connected");
-      });
+  socket.on("clear_history", async () => {
+    await TextMessage.deleteMany({}).catch(
+      logError(socket, "Clear History, Text Messages")
+    );
+    await ConnectionLog.deleteMany({}).catch(
+      logError(socket, "Clear History, Connection Logs")
+    );
+    await Image.deleteMany({}).catch(logError(socket, "Clear History, Images"));
+    socket.broadcast.emit("clear_history");
   });
 
-  socket.on("clear history", () => {
-    socket.broadcast.emit("clear history");
-  });
-
-  socket.on("clear logs", async () => {
-    await models.Message.deleteMany({ type: "disconnected" });
-    await models.Message.deleteMany({ type: "connected" });
-
+  socket.on("clear_logs", async () => {
+    await ConnectionLog.deleteMany({}).catch(logError(socket, "Clear Logs"));
     io.sockets.emit("clear logs");
   });
 
-  socket.on("message edit", async (id: string, content: string) => {
-    console.log(id, content);
-    await models.Message.findByIdAndUpdate(id, {
+  socket.on("message_edit", async (id: string, content: string) => {
+    await TextMessage.findByIdAndUpdate(id, {
       content: content,
       edited: true
-    }).catch(err => {
-      console.log(chalk.hex("#e84118")(err), "Message edit");
-      socket.emit("error", err);
-    });
+    }).catch(logError(socket, "Message Edit"));
 
-    io.sockets.emit("message edit", id, content);
+    io.sockets.emit("message_edit", id, content);
   });
 
   socket.on(
     "image",
-    async (rawImg: any, timestamp: number, sender: string) => {
-      // let buffer: Uint8Array = new Uint8Array(rawImg.split(" ") as any);
-      console.log(rawImg);
-
-      // for (let elem of Buffer.from(img)) buffer.push(elem.toString());
-
-      // let savedImg = new models.Message({
-      //   type: "image",
-      //   timestamp: timestamp,
-      //   sender: sender,
-      //   content: buffer.join(" ")
-      // });
-
-      // await savedImg.save();
-
-      // io.sockets.emit("image", savedImg);
-    }
+    async (rawImg: any, timestamp: number, sender: string) => {}
   );
 
-  socket.on("delete", async (id: string) => {
-    await models.Message.findByIdAndRemove(id).catch(err => {
-      console.log(chalk.hex("#e84118")(err), "Message edit");
-      socket.emit("error", err);
-    });
-
-    io.sockets.emit("delete", id);
+  socket.on("delete_text_message", async (id: string) => {
+    await TextMessage.findByIdAndRemove(id).catch(
+      logError(socket, "Delete Text Message")
+    );
+    io.sockets.emit("delete_text_message", id);
   });
 });
 
@@ -155,22 +110,23 @@ app.get(
 // Initialization process (message history) sending to each new connected user
 app.get("/init", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const messages = await models.Message.find({});
-    res.json(JSON.stringify(messages));
+    const textMessages: Document[] = await TextMessage.find({}),
+      connectionLogs: Document[] = await ConnectionLog.find({});
+    let sorted: (TextMessage | Image | ConnectionLog)[] = sortByTimestamp([
+      textMessages,
+      connectionLogs
+    ]);
+
+    res.json(sorted);
   } catch {
     return res.sendStatus(500);
   }
 });
 
-app.post("/img", fileUpload(), (req, res, next) => {
-  /////////////////////////////
-  console.log(req.files);
-});
-
 // Clear db history
 app.get("/clear", (req: Request, res: Response, next: NextFunction) => {
   try {
-    connection.dropCollection("messages");
+    connection.dropDatabase();
   } catch {
     return res.sendStatus(500);
   }
@@ -178,3 +134,31 @@ app.get("/clear", (req: Request, res: Response, next: NextFunction) => {
 });
 
 server.listen(5555);
+
+function logError(socket: Socket | null = null, message: string | null = null) {
+  return function (err: Error): void {
+    console.log(
+      message ? chalk.hex("#f0932b")(message + ": ") : "",
+      chalk.hex("#e84118")(err)
+    );
+    if (socket) socket.emit("error", err, message);
+  };
+}
+
+function sortByTimestamp(
+  arrays: Document[][]
+): (TextMessage | Image | ConnectionLog)[] {
+  let allElements: (TextMessage | Image | ConnectionLog)[] = [];
+
+  for (let arr of arrays)
+    for (let element of arr) allElements.push(element.toObject());
+
+  allElements.sort(
+    (
+      a: TextMessage | Image | ConnectionLog,
+      b: TextMessage | Image | ConnectionLog
+    ) => a.timestamp - b.timestamp
+  );
+
+  return allElements;
+}

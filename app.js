@@ -1,23 +1,4 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -28,8 +9,7 @@ const http_1 = require("http");
 const chalk_1 = __importDefault(require("chalk"));
 const cors_1 = __importDefault(require("cors"));
 const path_1 = __importDefault(require("path"));
-const models = __importStar(require("./models"));
-const express_fileupload_1 = __importDefault(require("express-fileupload"));
+const models_1 = require("./models");
 const app = express_1.default(), server = http_1.createServer(app), io = require("socket.io")(server);
 require("mongoose").Promise = global.Promise;
 // Open mongodb connection
@@ -56,9 +36,9 @@ io.on("connection", (socket) => {
         console.log("Socket error");
         console.log(chalk_1.default.hex("#e84118")(err));
     });
-    socket.on("message", async (message) => {
+    socket.on("text_message", async (message) => {
         console.log(message);
-        let msg = new models.Message({
+        let msg = new models_1.TextMessage({
             content: message.content,
             sender: message.sender,
             timestamp: message.timestamp
@@ -66,68 +46,33 @@ io.on("connection", (socket) => {
         await msg.save().catch(function (err) {
             console.log(chalk_1.default.hex("#e84118")(err), "Message saved");
         });
-        io.sockets.emit("message", msg.toObject());
+        io.sockets.emit("text_message", msg.toObject());
     });
-    socket.on("user disconnected", (userName) => {
-        socket.broadcast.emit("user disconnected", userName);
-        new models.Message({
-            sender: userName,
-            type: "disconnected"
-        })
-            .save()
-            .catch(function (err) {
-            console.log(chalk_1.default.hex("#e84118")(err), "User disconnected");
-        });
+    socket.on("connect_log", async (obj) => {
+        await new models_1.ConnectionLog(obj).save().catch(logError(socket, "Connect Log"));
+        socket.broadcast.emit("connect_log", obj);
     });
-    socket.on("user connected", (userName) => {
-        socket.broadcast.emit("user connected", userName);
-        new models.Message({
-            sender: userName,
-            type: "connected"
-        })
-            .save()
-            .catch(err => {
-            console.log(chalk_1.default.hex("#e84118")(err), "User connected");
-        });
+    socket.on("clear_history", async () => {
+        await models_1.TextMessage.deleteMany({}).catch(logError(socket, "Clear History, Text Messages"));
+        await models_1.ConnectionLog.deleteMany({}).catch(logError(socket, "Clear History, Connection Logs"));
+        await models_1.Image.deleteMany({}).catch(logError(socket, "Clear History, Images"));
+        socket.broadcast.emit("clear_history");
     });
-    socket.on("clear history", () => {
-        socket.broadcast.emit("clear history");
-    });
-    socket.on("clear logs", async () => {
-        await models.Message.deleteMany({ type: "disconnected" });
-        await models.Message.deleteMany({ type: "connected" });
+    socket.on("clear_logs", async () => {
+        await models_1.ConnectionLog.deleteMany({}).catch(logError(socket, "Clear Logs"));
         io.sockets.emit("clear logs");
     });
-    socket.on("message edit", async (id, content) => {
-        console.log(id, content);
-        await models.Message.findByIdAndUpdate(id, {
+    socket.on("message_edit", async (id, content) => {
+        await models_1.TextMessage.findByIdAndUpdate(id, {
             content: content,
             edited: true
-        }).catch(err => {
-            console.log(chalk_1.default.hex("#e84118")(err), "Message edit");
-            socket.emit("error", err);
-        });
-        io.sockets.emit("message edit", id, content);
+        }).catch(logError(socket, "Message Edit"));
+        io.sockets.emit("message_edit", id, content);
     });
-    socket.on("image", async (rawImg, timestamp, sender) => {
-        // let buffer: Uint8Array = new Uint8Array(rawImg.split(" ") as any);
-        console.log(rawImg);
-        // for (let elem of Buffer.from(img)) buffer.push(elem.toString());
-        // let savedImg = new models.Message({
-        //   type: "image",
-        //   timestamp: timestamp,
-        //   sender: sender,
-        //   content: buffer.join(" ")
-        // });
-        // await savedImg.save();
-        // io.sockets.emit("image", savedImg);
-    });
-    socket.on("delete", async (id) => {
-        await models.Message.findByIdAndRemove(id).catch(err => {
-            console.log(chalk_1.default.hex("#e84118")(err), "Message edit");
-            socket.emit("error", err);
-        });
-        io.sockets.emit("delete", id);
+    socket.on("image", async (rawImg, timestamp, sender) => { });
+    socket.on("delete_text_message", async (id) => {
+        await models_1.TextMessage.findByIdAndRemove(id).catch(logError(socket, "Delete Text Message"));
+        io.sockets.emit("delete_text_message", id);
     });
 });
 app.use(express_1.default.static(path_1.default.join(__dirname, "public")), cors_1.default());
@@ -135,21 +80,21 @@ app.get("/messages", (req, res, next) => { });
 // Initialization process (message history) sending to each new connected user
 app.get("/init", async (req, res, next) => {
     try {
-        const messages = await models.Message.find({});
-        res.json(JSON.stringify(messages));
+        const textMessages = await models_1.TextMessage.find({}), connectionLogs = await models_1.ConnectionLog.find({});
+        let sorted = sortByTimestamp([
+            textMessages,
+            connectionLogs
+        ]);
+        res.json(sorted);
     }
     catch {
         return res.sendStatus(500);
     }
 });
-app.post("/img", express_fileupload_1.default(), (req, res, next) => {
-    /////////////////////////////
-    console.log(req.files);
-});
 // Clear db history
 app.get("/clear", (req, res, next) => {
     try {
-        mongoose_1.connection.dropCollection("messages");
+        mongoose_1.connection.dropDatabase();
     }
     catch {
         return res.sendStatus(500);
@@ -157,3 +102,18 @@ app.get("/clear", (req, res, next) => {
     res.sendStatus(200);
 });
 server.listen(5555);
+function logError(socket = null, message = null) {
+    return function (err) {
+        console.log(message ? chalk_1.default.hex("#f0932b")(message + ": ") : "", chalk_1.default.hex("#e84118")(err));
+        if (socket)
+            socket.emit("error", err, message);
+    };
+}
+function sortByTimestamp(arrays) {
+    let allElements = [];
+    for (let arr of arrays)
+        for (let element of arr)
+            allElements.push(element.toObject());
+    allElements.sort((a, b) => a.timestamp - b.timestamp);
+    return allElements;
+}
