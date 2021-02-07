@@ -488,6 +488,7 @@ async function sendPhoto(): Promise<any> {
         separatedElement.push(
           base64!.slice(currentPos, currentPos + partLength)
         );
+        currentPos += 1000;
       }
 
       if (partLength)

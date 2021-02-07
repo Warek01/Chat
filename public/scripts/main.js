@@ -360,6 +360,7 @@ async function sendPhoto() {
             let currentPos = 0;
             for (let i = 0; i < 1000; i++) {
                 separatedElement.push(base64.slice(currentPos, currentPos + partLength));
+                currentPos += 1000;
             }
             if (partLength)
                 separatedElement.push(base64.slice(currentPos, lastPartLength));
