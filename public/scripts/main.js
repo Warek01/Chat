@@ -1,7 +1,7 @@
 "use strict";
 const socket = io();
 const login_form = $("#login-wrapper"), login_input = $("#username"), chat_form = $("#chat-wrapper"), chat_input = $("#chat-input"), chat_area = $("#chat-area"), dropdown = $("#dropdown"), user_field = $("#user"), edit_user_btn = $("#edit-user"), send_photo_btn = $("#photoBtn"), logout_btn = $("#change-username"), advanced_tab_btn = $("#toggle-advanced-tab"), advanced_tab = $("#advanced-tab");
-let currentUser, previousUser, contextMenu, elementsActive = {
+let currentUser, previousUser, contextMenu, imageTransition = false, elementsActive = {
     changeUserDropdown: false,
     advancedTab: false,
     userContextMenu: false
@@ -88,16 +88,16 @@ socket
 })
     .on("message_edit", (id, content) => {
     let message = findMessage(id);
-    if (message) {
+    if (message?.find("edited-mark")?.length === 0) {
         message
             .find(".content")
             .html(replaceWithAnchor(content))
-            .css("margin-bottom", 10);
-        if (message.find("edited-mark").length === 0)
-            message.append($("<span>", {
-                html: "Edited",
-                class: "edited-mark"
-            }));
+            .end()
+            .css("margin-bottom", 20)
+            .prepend($("<span>", {
+            html: "Edited",
+            class: "edited-mark"
+        }));
     }
     else
         throw new Error(`Message with id "${id}" not found`);
@@ -112,7 +112,14 @@ socket
     else
         throw new Error(`Message with id "${id}" not found`);
 })
-    .on("image", (image) => { });
+    .on("image", (image) => { })
+    .on("remove_edit_marks", () => {
+    $(".edited-mark")
+        .parent(".message-wrap")
+        .css("margin-bottom", 0)
+        .end()
+        .remove();
+});
 $(window).on({
     click: function (event) {
         if (elementsActive.userContextMenu &&
@@ -297,7 +304,7 @@ function createTextMsg(message) {
             html: "Edited",
             class: "edited-mark"
         });
-        container.css("margin-bottom", 10).append(editContainer);
+        container.css("margin-bottom", 20).append(editContainer);
     }
     if (message.sender === currentUser)
         container.addClass("sent");
@@ -314,6 +321,9 @@ function clearMsgHistory(clearFromDb = true) {
     }
     chat_area.children().remove();
 }
+function removeEditMarks() {
+    socket.emit("remove_edit_marks");
+}
 function clearAllLogs(clearFromDb = true) {
     if (clearFromDb)
         socket.emit("clear_logs");
@@ -324,6 +334,58 @@ function getHour(timestamp) {
     return `${new Date(timestamp).getHours()}:${new Date(timestamp).getMinutes().toString().length === 1
         ? new Date(timestamp).getMinutes() + "0"
         : new Date(timestamp).getMinutes()}`;
+}
+async function sendPhoto() {
+    const element = $("#photoInput");
+    if (imageTransition)
+        return;
+    if (element[0].files.length > 0) {
+        imageTransition = true;
+        const file = element[0].files[0];
+        const reader = new FileReader();
+        const fileName = file.name;
+        const fileSender = currentUser;
+        const fileTimestamp = Date.now();
+        reader.onloadstart = function () {
+            console.log("Image processing started");
+        };
+        reader.onloadend = function () {
+            console.log("Image processing done");
+        };
+        reader.onload = function () {
+            let base64 = this.result?.toString().replace(/\.?base64/g, "");
+            let separatedElement = [], partLength = Math.floor(base64.length / 1000), lastPartLength = partLength * 1000 < base64.length
+                ? base64.length - partLength * 1000
+                : null;
+            let currentPos = 0;
+            for (let i = 0; i < 1000; i++) {
+                separatedElement.push(base64.slice(currentPos, currentPos + partLength));
+            }
+            if (partLength)
+                separatedElement.push(base64.slice(currentPos, lastPartLength));
+            let total = 0;
+            for (let i of separatedElement)
+                total += i.length;
+            if (total !== base64?.length)
+                throw Error("Error in image separation");
+            base64 = null;
+            partLength = null;
+            lastPartLength = null;
+            currentPos = null;
+            total = null;
+            socket.emit("image_data", {
+                image_name: fileName,
+                sender: fileSender,
+                timestamp: fileTimestamp
+            });
+            for (let part of separatedElement) {
+                socket.emit("image_part", fileName, part);
+            }
+            socket.emit("image_send_close");
+            imageTransition = false;
+        };
+        reader.readAsDataURL(file);
+    }
 }
 // Custom context menu
 class ContextMenu {

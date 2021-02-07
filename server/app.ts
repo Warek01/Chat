@@ -1,5 +1,5 @@
 import express, { Application, Request, Response, NextFunction } from "express";
-import { connect, connection, Document } from "mongoose";
+import { connect, connection, Document, models } from "mongoose";
 import { createServer } from "http";
 import chalk from "chalk";
 import cors from "cors";
@@ -75,7 +75,7 @@ io.on("connection", (socket: Socket): void => {
 
   socket.on("clear_logs", async () => {
     await ConnectionLog.deleteMany({}).catch(logError(socket, "Clear Logs"));
-    io.sockets.emit("clear logs");
+    io.sockets.emit("clear_logs");
   });
 
   socket.on("message_edit", async (id: string, content: string) => {
@@ -98,6 +98,24 @@ io.on("connection", (socket: Socket): void => {
     );
     io.sockets.emit("delete_text_message", id);
   });
+
+  socket.on("remove_edit_marks", async () => {
+    await TextMessage.updateMany({ edited: true }, {$set: {edited: false}});
+    io.sockets.emit("remove_edit_marks");
+  });
+
+  socket.on("image_data", (data: Image) => {
+
+  });
+
+  socket.on("image_part", (imageName: string, part: string[]) => {
+    
+  });
+
+  socket.on("image_send_close", () => {
+
+  });
+
 });
 
 app.use(express.static(path.join(__dirname, "public")), cors());
@@ -153,12 +171,13 @@ function sortByTimestamp(
   for (let arr of arrays)
     for (let element of arr) allElements.push(element.toObject());
 
-  allElements.sort(
-    (
-      a: TextMessage | Image | ConnectionLog,
-      b: TextMessage | Image | ConnectionLog
-    ) => a.timestamp - b.timestamp
-  );
+  for (let i = 0; i < allElements.length; i++)
+    for (let j = i + 1; j < allElements.length; j++) 
+      if (allElements[i].timestamp > allElements[j].timestamp) {
+        let temp = allElements[i];
+        allElements[i] = allElements[j];
+        allElements[j] = temp;
+      }
 
   return allElements;
 }

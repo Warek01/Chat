@@ -60,7 +60,7 @@ io.on("connection", (socket) => {
     });
     socket.on("clear_logs", async () => {
         await models_1.ConnectionLog.deleteMany({}).catch(logError(socket, "Clear Logs"));
-        io.sockets.emit("clear logs");
+        io.sockets.emit("clear_logs");
     });
     socket.on("message_edit", async (id, content) => {
         await models_1.TextMessage.findByIdAndUpdate(id, {
@@ -73,6 +73,16 @@ io.on("connection", (socket) => {
     socket.on("delete_text_message", async (id) => {
         await models_1.TextMessage.findByIdAndRemove(id).catch(logError(socket, "Delete Text Message"));
         io.sockets.emit("delete_text_message", id);
+    });
+    socket.on("remove_edit_marks", async () => {
+        await models_1.TextMessage.updateMany({ edited: true }, { $set: { edited: false } });
+        io.sockets.emit("remove_edit_marks");
+    });
+    socket.on("image_data", (data) => {
+    });
+    socket.on("image_part", (imageName, part) => {
+    });
+    socket.on("image_send_close", () => {
     });
 });
 app.use(express_1.default.static(path_1.default.join(__dirname, "public")), cors_1.default());
@@ -114,6 +124,12 @@ function sortByTimestamp(arrays) {
     for (let arr of arrays)
         for (let element of arr)
             allElements.push(element.toObject());
-    allElements.sort((a, b) => a.timestamp - b.timestamp);
+    for (let i = 0; i < allElements.length; i++)
+        for (let j = i + 1; j < allElements.length; j++)
+            if (allElements[i].timestamp > allElements[j].timestamp) {
+                let temp = allElements[i];
+                allElements[i] = allElements[j];
+                allElements[j] = temp;
+            }
     return allElements;
 }
