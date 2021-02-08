@@ -14,10 +14,18 @@ const login_form: JQuery = $("#login-wrapper"),
   advanced_tab_btn: JQuery = $("#toggle-advanced-tab"),
   advanced_tab: JQuery = $("#advanced-tab");
 
-let currentUser: string | null,
-  previousUser: string | null,
-  contextMenu: ContextMenu | null,
-  imageTransition: boolean = false,
+let currentUser: string,
+  previousUser: string,
+  contextMenu: ContextMenu,
+  imageSettings: {
+    transition: boolean;
+    parts: string[];
+    currentName: string;
+  } = {
+    transition: false,
+    parts: [],
+    currentName: null
+  },
   elementsActive: {
     changeUserDropdown: boolean;
     advancedTab: boolean;
@@ -135,13 +143,32 @@ socket
     if (message) message.remove();
     else throw new Error(`Message with id "${id}" not found`);
   })
-  .on("image", (image: Image) => {})
+  .on("image", (image: Image) => {
+    createImg(image, null);
+  })
   .on("remove_edit_marks", () => {
     $(".edited-mark")
       .parent(".message-wrap")
       .css("margin-bottom", 0)
       .end()
       .remove();
+  })
+  // Image implementation
+  .on("image_data", (data: Image) => {
+    if (!imageSettings.transition) {
+      imageSettings.currentName = data.imageName;
+      imageSettings.transition = true;
+    }
+  })
+  .on("image_part", async (imageName: string, part: string) => {
+    if (imageName === imageSettings.currentName) imageSettings.parts.push(part);
+    else throw Error("Image name error");
+  })
+  .on("image_send_end", (data: Image, id: string) => {
+    if (imageSettings.transition) {
+      createImg(data, id);
+      imageSettings.transition = false;
+    }
   });
 
 $(window).on({
@@ -299,7 +326,7 @@ async function init(): Promise<any> {
         createConnectionLog(em as ConnectionLog);
         break;
       case "image":
-        // ---
+        // createImg(em as Image, null);
         break;
     }
   }
@@ -346,6 +373,18 @@ function validatePreviousUserBtn(): void {
   } else $(".last-user").hide();
 }
 
+function splitToLength(str: string, len: number) {
+  if (len === undefined || len > str.length) {
+    len = str.length;
+  }
+  var yardstick = new RegExp(`.{${len}}`, "g");
+  var pieces = str.match(yardstick);
+  var accumulated = pieces.length * len;
+  var modulo = str.length % accumulated;
+  if (modulo) pieces.push(str.slice(accumulated));
+  return pieces;
+}
+
 // Messages area
 interface TextMessage {
   content: string;
@@ -366,7 +405,7 @@ interface ConnectionLog {
 
 interface Image {
   sender: string;
-  image_name: string;
+  imageName: string;
   timestamp: number;
   _id?: string;
   name?: string;
@@ -424,6 +463,28 @@ function createTextMsg(message: TextMessage): void {
   chat_area.append(container);
 }
 
+function createImg(image: Image, id: string): void {
+  let container = $("<div>", {
+    class: "message-wrap"
+  });
+
+  if (imageSettings.parts.length > 0 && id !== null) {
+    const base64 = imageSettings.parts.join("");
+
+    let imageElement = new Image();
+    imageElement.src = base64;
+    imageElement.className = "img-message";
+
+    container.append(imageElement);
+
+    imageSettings.parts = [];
+    imageSettings.currentName = null;
+  } else {
+  }
+
+  $("body").append(container);
+}
+
 function clearMsgHistory(clearFromDb: boolean = true): void {
   if (clearFromDb) {
     fetch("/clear")
@@ -454,10 +515,10 @@ function getHour(timestamp: number): string {
 
 async function sendPhoto(): Promise<any> {
   const element = $("#photoInput");
-  if (imageTransition) return;
+  if (imageSettings.transition) return;
 
   if ((element[0] as any).files.length > 0) {
-    imageTransition = true;
+    imageSettings.transition = true;
     const file = (element[0] as any).files[0];
     const reader = new FileReader();
 
@@ -474,38 +535,19 @@ async function sendPhoto(): Promise<any> {
     };
 
     reader.onload = function () {
-      let base64: string = this.result?.toString().replace(/\.?base64/g, "");
+      let base64: string = this.result?.toString();
 
-      let separatedElement: string[] = [],
-        partLength: number = Math.floor(base64!.length / 1000),
-        lastPartLength: number =
-          partLength * 1000 < base64!.length
-            ? base64!.length - partLength * 1000
-            : null;
-
-      let currentPos: number = 0;
-      for (let i = 0; i < 1000; i++) {
-        separatedElement.push(
-          base64!.slice(currentPos, currentPos + partLength)
-        );
-        currentPos += 1000;
-      }
-
-      if (partLength)
-        separatedElement.push(base64!.slice(currentPos, lastPartLength!));
+      let separatedElement: string[] = splitToLength(base64, 1000);
 
       let total: number = 0;
       for (let i of separatedElement) total += i.length;
       if (total !== base64?.length) throw Error("Error in image separation");
 
       base64 = null;
-      partLength = null;
-      lastPartLength = null;
-      currentPos = null;
       total = null;
 
       socket.emit("image_data", {
-        image_name: fileName,
+        imageName: fileName,
         sender: fileSender,
         timestamp: fileTimestamp
       } as Image);
@@ -514,8 +556,11 @@ async function sendPhoto(): Promise<any> {
         socket.emit("image_part", fileName, part);
       }
 
-      socket.emit("image_send_close");
-      imageTransition = false;
+      socket.emit("image_send_end", {
+        imageName: fileName,
+        timestamp: fileTimestamp,
+        sender: fileSender
+      } as Image);
     };
 
     reader.readAsDataURL(file);

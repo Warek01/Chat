@@ -1,7 +1,11 @@
 "use strict";
 const socket = io();
 const login_form = $("#login-wrapper"), login_input = $("#username"), chat_form = $("#chat-wrapper"), chat_input = $("#chat-input"), chat_area = $("#chat-area"), dropdown = $("#dropdown"), user_field = $("#user"), edit_user_btn = $("#edit-user"), send_photo_btn = $("#photoBtn"), logout_btn = $("#change-username"), advanced_tab_btn = $("#toggle-advanced-tab"), advanced_tab = $("#advanced-tab");
-let currentUser, previousUser, contextMenu, imageTransition = false, elementsActive = {
+let currentUser, previousUser, contextMenu, imageSettings = {
+    transition: false,
+    parts: [],
+    currentName: null
+}, elementsActive = {
     changeUserDropdown: false,
     advancedTab: false,
     userContextMenu: false
@@ -112,13 +116,34 @@ socket
     else
         throw new Error(`Message with id "${id}" not found`);
 })
-    .on("image", (image) => { })
+    .on("image", (image) => {
+    createImg(image, null);
+})
     .on("remove_edit_marks", () => {
     $(".edited-mark")
         .parent(".message-wrap")
         .css("margin-bottom", 0)
         .end()
         .remove();
+})
+    // Image implementation
+    .on("image_data", (data) => {
+    if (!imageSettings.transition) {
+        imageSettings.currentName = data.imageName;
+        imageSettings.transition = true;
+    }
+})
+    .on("image_part", async (imageName, part) => {
+    if (imageName === imageSettings.currentName)
+        imageSettings.parts.push(part);
+    else
+        throw Error("Image name error");
+})
+    .on("image_send_end", (data, id) => {
+    if (imageSettings.transition) {
+        createImg(data, id);
+        imageSettings.transition = false;
+    }
 });
 $(window).on({
     click: function (event) {
@@ -239,7 +264,7 @@ async function init() {
                 createConnectionLog(em);
                 break;
             case "image":
-                // ---
+                // createImg(em as Image, null);
                 break;
         }
     }
@@ -272,6 +297,18 @@ function validatePreviousUserBtn() {
     }
     else
         $(".last-user").hide();
+}
+function splitToLength(str, len) {
+    if (len === undefined || len > str.length) {
+        len = str.length;
+    }
+    var yardstick = new RegExp(`.{${len}}`, "g");
+    var pieces = str.match(yardstick);
+    var accumulated = pieces.length * len;
+    var modulo = str.length % accumulated;
+    if (modulo)
+        pieces.push(str.slice(accumulated));
+    return pieces;
 }
 function createConnectionLog(obj) {
     let container = $("<div>", { class: "connection" }), content = $("<p>", {
@@ -312,6 +349,23 @@ function createTextMsg(message) {
     container.append(_message);
     chat_area.append(container);
 }
+function createImg(image, id) {
+    let container = $("<div>", {
+        class: "message-wrap"
+    });
+    if (imageSettings.parts.length > 0 && id !== null) {
+        const base64 = imageSettings.parts.join("");
+        let imageElement = new Image();
+        imageElement.src = base64;
+        imageElement.className = "img-message";
+        container.append(imageElement);
+        imageSettings.parts = [];
+        imageSettings.currentName = null;
+    }
+    else {
+    }
+    $("body").append(container);
+}
 function clearMsgHistory(clearFromDb = true) {
     if (clearFromDb) {
         fetch("/clear")
@@ -337,10 +391,10 @@ function getHour(timestamp) {
 }
 async function sendPhoto() {
     const element = $("#photoInput");
-    if (imageTransition)
+    if (imageSettings.transition)
         return;
     if (element[0].files.length > 0) {
-        imageTransition = true;
+        imageSettings.transition = true;
         const file = element[0].files[0];
         const reader = new FileReader();
         const fileName = file.name;
@@ -353,37 +407,28 @@ async function sendPhoto() {
             console.log("Image processing done");
         };
         reader.onload = function () {
-            let base64 = this.result?.toString().replace(/\.?base64/g, "");
-            let separatedElement = [], partLength = Math.floor(base64.length / 1000), lastPartLength = partLength * 1000 < base64.length
-                ? base64.length - partLength * 1000
-                : null;
-            let currentPos = 0;
-            for (let i = 0; i < 1000; i++) {
-                separatedElement.push(base64.slice(currentPos, currentPos + partLength));
-                currentPos += 1000;
-            }
-            if (partLength)
-                separatedElement.push(base64.slice(currentPos, lastPartLength));
+            let base64 = this.result?.toString();
+            let separatedElement = splitToLength(base64, 1000);
             let total = 0;
             for (let i of separatedElement)
                 total += i.length;
             if (total !== base64?.length)
                 throw Error("Error in image separation");
             base64 = null;
-            partLength = null;
-            lastPartLength = null;
-            currentPos = null;
             total = null;
             socket.emit("image_data", {
-                image_name: fileName,
+                imageName: fileName,
                 sender: fileSender,
                 timestamp: fileTimestamp
             });
             for (let part of separatedElement) {
                 socket.emit("image_part", fileName, part);
             }
-            socket.emit("image_send_close");
-            imageTransition = false;
+            socket.emit("image_send_end", {
+                imageName: fileName,
+                timestamp: fileTimestamp,
+                sender: fileSender
+            });
         };
         reader.readAsDataURL(file);
     }
