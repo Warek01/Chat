@@ -85,11 +85,14 @@ io.on("connection", (socket) => {
     let currentImageName;
     let parts = [];
     let currentImgId;
+    socket.on("request_image", (data) => { });
     socket.on("image_data", async (data) => {
         if (!imageProcessing) {
             currentImageName = data.imageName;
             imageProcessing = true;
-            let document = await new models_1.Image(data).save().catch(logError(socket, "Image Data"));
+            let document = (await new models_1.Image(data)
+                .save()
+                .catch(logError(socket, "Image Data")));
             currentImgId = document.toObject()._id;
         }
     });
@@ -119,14 +122,22 @@ io.on("connection", (socket) => {
     });
 });
 app.use(express_1.default.static(path_1.default.join(__dirname, "public")), cors_1.default());
-app.get("/messages", (req, res, next) => { });
+let imageProcessing = false;
+app.get("/getImage/:_id/:part", (req, res, next) => {
+    if (!imageProcessing) {
+        if (Number(req.params.part) === 999) {
+            imageProcessing = false;
+        }
+    }
+});
 // Initialization process (message history) sending to each new connected user
 app.get("/init", async (req, res, next) => {
     try {
-        const textMessages = await models_1.TextMessage.find({}), connectionLogs = await models_1.ConnectionLog.find({});
+        const textMessages = await models_1.TextMessage.find({}), connectionLogs = await models_1.ConnectionLog.find({}), images = await models_1.Image.find({});
         let sorted = sortByTimestamp([
             textMessages,
-            connectionLogs
+            connectionLogs,
+            images
         ]);
         res.json(sorted);
     }

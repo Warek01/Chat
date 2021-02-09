@@ -1,4 +1,10 @@
 import { model, Schema } from "mongoose";
+import Int32 = require("mongoose-int32");
+import Double from "@mongoosejs/double";
+
+type int32 = number;
+type longInt = number;
+type double = number;
 
 export const TextMessage = model(
   "Text Message",
@@ -32,7 +38,7 @@ export const TextMessage = model(
 export interface TextMessage {
   content: string;
   sender: string;
-  timestamp: number;
+  timestamp: longInt;
   type: string;
   edited: boolean;
   _id: string;
@@ -67,7 +73,7 @@ export const ConnectionLog = model(
 export interface ConnectionLog {
   type: string;
   username: string;
-  timestamp: number;
+  timestamp: longInt;
   name?: string;
 }
 
@@ -98,13 +104,17 @@ export const Image = model(
 export interface Image {
   sender: string;
   imageName: string;
-  timestamp: number;
+  timestamp: longInt;
   name?: string;
 }
 
-export const Config = model("Config", new Schema({
-  noConnectionLogs: Boolean
-}), "config");
+export const Config = model(
+  "Config",
+  new Schema({
+    noConnectionLogs: Boolean
+  }),
+  "config"
+);
 
 export interface Config {
   noConnectionLogs: boolean;

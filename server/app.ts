@@ -113,11 +113,15 @@ io.on("connection", (socket: Socket): void => {
   let parts: string[] = [];
   let currentImgId: string;
 
+  socket.on("request_image", (data: Image) => {});
+
   socket.on("image_data", async (data: Image) => {
     if (!imageProcessing) {
       currentImageName = data.imageName;
       imageProcessing = true;
-      let document = await new Image(data).save().catch(logError(socket, "Image Data")) as Document;
+      let document = (await new Image(data)
+        .save()
+        .catch(logError(socket, "Image Data"))) as Document;
       currentImgId = document.toObject()._id;
     }
   });
@@ -144,7 +148,8 @@ io.on("connection", (socket: Socket): void => {
 
           // Sending back
           io.sockets.emit("image_data", data);
-          for (let part of parts) io.sockets.emit("image_part", currentImageName, part);
+          for (let part of parts)
+            io.sockets.emit("image_part", currentImageName, part);
           io.sockets.emit("image_send_end", data, currentImgId);
 
           imageProcessing = false;
@@ -159,19 +164,29 @@ io.on("connection", (socket: Socket): void => {
 
 app.use(express.static(path.join(__dirname, "public")), cors());
 
+let imageProcessing: boolean = false;
 app.get(
-  "/messages",
-  (req: Request, res: Response, next: NextFunction): void => {}
+  "/getImage/:_id/:part",
+  (req: Request, res: Response, next: NextFunction): void => {
+    if (!imageProcessing) {
+      if (Number(req.params.part) === 999) {
+        imageProcessing = false;
+      }
+    }
+  }
 );
 
 // Initialization process (message history) sending to each new connected user
 app.get("/init", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const textMessages: Document[] = await TextMessage.find({}),
-      connectionLogs: Document[] = await ConnectionLog.find({});
+      connectionLogs: Document[] = await ConnectionLog.find({}),
+      images: Document[] = await Image.find({});
+
     let sorted: (TextMessage | Image | ConnectionLog)[] = sortByTimestamp([
       textMessages,
-      connectionLogs
+      connectionLogs,
+      images
     ]);
 
     res.json(sorted);

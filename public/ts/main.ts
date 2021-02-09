@@ -227,6 +227,7 @@ send_photo_btn.click(function (event: JQuery.ClickEvent): void {
   imgInput.trigger("click");
 });
 
+// --------------------------------------------------------------
 // Functions
 
 function removeCookie(cookie: string): string {
@@ -313,6 +314,7 @@ function sendMessage(): void {
 
 async function init(): Promise<any> {
   clearMsgHistory(false);
+  const stack = new Stack<Image>();
 
   let req: Response = await fetch("/init"),
     res: (TextMessage | ConnectionLog | Image)[] = await req.json();
@@ -326,10 +328,11 @@ async function init(): Promise<any> {
         createConnectionLog(em as ConnectionLog);
         break;
       case "image":
-        // createImg(em as Image, null);
+        stack.push(em as Image);
         break;
     }
   }
+  requestImages(stack);
 }
 
 // https://stackoverflow.com/questions/8667070/javascript-regular-expression-to-validate-url
@@ -463,12 +466,12 @@ function createTextMsg(message: TextMessage): void {
   chat_area.append(container);
 }
 
-function createImg(image: Image, id: string): void {
+function createImg(image: Image, base64?: string): void {
   let container = $("<div>", {
     class: "message-wrap"
   });
 
-  if (imageSettings.parts.length > 0 && id !== null) {
+  if (imageSettings.parts.length > 0 && image._id !== null) {
     const base64 = imageSettings.parts.join("");
 
     let imageElement = new Image();
@@ -567,7 +570,34 @@ async function sendPhoto(): Promise<any> {
   }
 }
 
-// Custom context menu
+async function requestImages(stack: Stack<Image>): Promise<any> {
+  while (stack.length) {
+    const current: Image = stack.get();
+
+    let index: number = 0;
+    let parts: string[] = [];
+
+    while (parts.length <= 1000) {
+      let req = await fetch(`/getImage/${current._id}/${index}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "text/plain",
+          "Cache-Control": "no-cache"
+        }
+      });
+
+      let res = await req.text();
+      parts.push(res);
+    }
+
+    let raw: string = parts.join("");
+    createImg(current, raw);
+  }
+}
+
+// --------------------------------------------------------------
+// Classes
+
 class ContextMenu {
   private id: string;
   private menuElement: JQuery;
@@ -716,5 +746,65 @@ class ContextMenu {
 
   private enableScrolling(): void {
     chat_area[0].onscroll = function () {};
+  }
+}
+
+class Stack<Type> {
+  private stack: Type[] = [];
+  private firstElement: Type = null;
+  private lastElement: Type = null;
+
+  constructor() {}
+
+  /** Add an element to the stack */
+  push(obj: Type): Stack<Type> {
+    if (this.stack.length === 0 && !this.firstElement && !this.lastElement) {
+      this.firstElement = obj;
+      this.lastElement = obj;
+    } else {
+      this.lastElement = obj;
+    }
+    this.stack.push(obj);
+    return this;
+  }
+
+  /** Remove first element */
+  pop(): Stack<Type> {
+    if (this.lastElement === this.firstElement && this.stack.length === 1) {
+      this.firstElement = null;
+      this.lastElement = null;
+    } else if (this.stack.length > 2) {
+      this.firstElement = this.stack[1];
+    } else if (this.stack.length === 2) {
+      this.firstElement = this.lastElement;
+    }
+
+    this.stack.shift();
+    return this;
+  }
+
+  /** Get first element of the stack then delete it */
+  get(): Type {
+    let firstElement: Type;
+
+    if (this.stack.length > 0 && this.firstElement && this.lastElement) {
+      firstElement = this.firstElement;
+      this.pop();
+    }
+
+    return firstElement;
+  }
+
+  /** Empty stack */
+  empty(): Stack<Type> {
+    this.stack = [];
+    this.firstElement = null;
+    this.lastElement = null;
+    return this;
+  }
+
+  /** Stack length */
+  get length(): number {
+    return this.stack.length;
   }
 }

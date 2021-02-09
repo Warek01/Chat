@@ -186,6 +186,7 @@ send_photo_btn.click(function (event) {
     const imgInput = $("#photoInput");
     imgInput.trigger("click");
 });
+// --------------------------------------------------------------
 // Functions
 function removeCookie(cookie) {
     document.cookie = `${encodeURIComponent(cookie)}=0; max-age=0`;
@@ -254,6 +255,7 @@ function sendMessage() {
 }
 async function init() {
     clearMsgHistory(false);
+    const stack = new Stack();
     let req = await fetch("/init"), res = await req.json();
     for (let em of res) {
         switch (em.name) {
@@ -264,10 +266,11 @@ async function init() {
                 createConnectionLog(em);
                 break;
             case "image":
-                // createImg(em as Image, null);
+                stack.push(em);
                 break;
         }
     }
+    requestImages(stack);
 }
 // https://stackoverflow.com/questions/8667070/javascript-regular-expression-to-validate-url
 function validateUrl(value) {
@@ -349,11 +352,11 @@ function createTextMsg(message) {
     container.append(_message);
     chat_area.append(container);
 }
-function createImg(image, id) {
+function createImg(image, base64) {
     let container = $("<div>", {
         class: "message-wrap"
     });
-    if (imageSettings.parts.length > 0 && id !== null) {
+    if (imageSettings.parts.length > 0 && image._id !== null) {
         const base64 = imageSettings.parts.join("");
         let imageElement = new Image();
         imageElement.src = base64;
@@ -433,7 +436,28 @@ async function sendPhoto() {
         reader.readAsDataURL(file);
     }
 }
-// Custom context menu
+async function requestImages(stack) {
+    while (stack.length) {
+        const current = stack.get();
+        let index = 0;
+        let parts = [];
+        while (parts.length <= 1000) {
+            let req = await fetch(`/getImage/${current._id}/${index}`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "text/plain",
+                    "Cache-Control": "no-cache"
+                }
+            });
+            let res = await req.text();
+            parts.push(res);
+        }
+        let raw = parts.join("");
+        createImg(current, raw);
+    }
+}
+// --------------------------------------------------------------
+// Classes
 class ContextMenu {
     constructor(event) {
         this.disableScrolling();
@@ -541,5 +565,59 @@ class ContextMenu {
     }
     enableScrolling() {
         chat_area[0].onscroll = function () { };
+    }
+}
+class Stack {
+    constructor() {
+        this.stack = [];
+        this.firstElement = null;
+        this.lastElement = null;
+    }
+    /** Add an element to the stack */
+    push(obj) {
+        if (this.stack.length === 0 && !this.firstElement && !this.lastElement) {
+            this.firstElement = obj;
+            this.lastElement = obj;
+        }
+        else {
+            this.lastElement = obj;
+        }
+        this.stack.push(obj);
+        return this;
+    }
+    /** Remove first element */
+    pop() {
+        if (this.lastElement === this.firstElement && this.stack.length === 1) {
+            this.firstElement = null;
+            this.lastElement = null;
+        }
+        else if (this.stack.length > 2) {
+            this.firstElement = this.stack[1];
+        }
+        else if (this.stack.length === 2) {
+            this.firstElement = this.lastElement;
+        }
+        this.stack.shift();
+        return this;
+    }
+    /** Get first element of the stack then delete it */
+    get() {
+        let firstElement;
+        if (this.stack.length > 0 && this.firstElement && this.lastElement) {
+            firstElement = this.firstElement;
+            this.pop();
+        }
+        return firstElement;
+    }
+    /** Empty stack */
+    empty() {
+        this.stack = [];
+        this.firstElement = null;
+        this.lastElement = null;
+        return this;
+    }
+    /** Stack length */
+    get length() {
+        return this.stack.length;
     }
 }
