@@ -55,6 +55,7 @@ io.on("connection", (socket) => {
         socket.broadcast.emit("connect_log", obj);
     });
     socket.on("clear_history", async () => {
+        console.log("Clearing history");
         await models_1.TextMessage.deleteMany({}).catch(logError(socket, "Clear History, Text Messages"));
         await models_1.ConnectionLog.deleteMany({}).catch(logError(socket, "Clear History, Connection Logs"));
         await models_1.Image.deleteMany({}).catch(logError(socket, "Clear History, Images"));

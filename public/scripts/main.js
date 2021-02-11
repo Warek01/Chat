@@ -1,44 +1,43 @@
-"use strict";
-const socket = io();
-const login_form = $("#login-wrapper"), login_input = $("#username"), chat_form = $("#chat-wrapper"), chat_input = $("#chat-input"), chat_area = $("#chat-area"), dropdown = $("#dropdown"), user_field = $("#user"), edit_user_btn = $("#edit-user"), send_photo_btn = $("#photoBtn"), logout_btn = $("#change-username"), advanced_tab_btn = $("#toggle-advanced-tab"), advanced_tab = $("#advanced-tab");
-let currentUser, previousUser, contextMenu, imageSettings = {
-    transition: false,
-    parts: [],
-    currentName: null
-}, elementsActive = {
-    changeUserDropdown: false,
-    advancedTab: false,
-    userContextMenu: false
-};
+import { ContextMenu, Stack } from "./structures.js";
+import { elements, elementsActive, variables, imageSettings, socket } from "./declarations.js";
 $(document).ready(function (event) {
     if (document.cookie.match(/username/)) {
-        currentUser = decodeURIComponent((document.cookie.match(/(?<=username=)\w+/) || [""])[0]);
-        user_field.text(currentUser);
+        variables.currentUser = decodeURIComponent((document.cookie.match(/(?<=username=)\w+/) || [""])[0]);
+        elements.user_field.text(variables.currentUser);
         init();
-        edit_user_btn.css("pointer-events", "all");
+        elements.edit_user_btn.css("pointer-events", "all");
         socket.emit("connect_log", {
             type: "connect",
-            username: currentUser,
+            username: variables.currentUser,
             timestamp: Date.now()
         });
     }
     else {
         $("#login").click(login);
-        login_form.css("display", "flex");
-        chat_form.hide();
+        elements.login_form.css("display", "flex");
+        elements.chat_form.hide();
     }
     validatePreviousUserBtn();
 });
-edit_user_btn.click(function (event) {
+elements.photo_input.change(sendPhoto);
+elements.send_text_btn.click(sendMessage);
+elements.change_username_btn.click(logout);
+elements.clear_history_btn.click(e => {
+    clearMsgHistory(true);
+});
+elements.clear_logs_btn.click(e => {
+    clearAllLogs(true);
+});
+elements.edit_user_btn.click(function (event) {
     if (!elementsActive.changeUserDropdown) {
-        dropdown.show();
+        elements.dropdown.show();
         $("body").children().not("header").css({
             "pointer-events": "none",
             filter: "blur(2px)"
         });
     }
     else {
-        dropdown.hide();
+        elements.dropdown.hide();
         $("body").children().not("header").css({
             "pointer-events": "all",
             filter: "blur(0)"
@@ -46,18 +45,18 @@ edit_user_btn.click(function (event) {
     }
     elementsActive.changeUserDropdown = !elementsActive.changeUserDropdown;
 });
-advanced_tab_btn.click(function (event) {
-    if (advanced_tab.css("display") === "none") {
-        advanced_tab.show();
-        dropdown.css("height", 230);
+elements.advanced_tab_btn.click(function (event) {
+    if (elements.advanced_tab.css("display") === "none") {
+        elements.advanced_tab.show();
+        elements.dropdown.css("height", 230);
     }
     else {
-        advanced_tab.hide();
-        dropdown.css("height", 150);
+        elements.advanced_tab.hide();
+        elements.dropdown.css("height", 150);
     }
     elementsActive.advancedTab = !elementsActive.advancedTab;
 });
-login_input.keypress(function (event) {
+elements.login_input.keypress(function (event) {
     switch (event.key) {
         case "Enter":
             if ($(this).val().toString().trim() !== "")
@@ -65,10 +64,10 @@ login_input.keypress(function (event) {
             break;
     }
 });
-chat_input.keypress(function (event) {
+elements.chat_input.keypress(function (event) {
     if (event.key === "Enter")
         if (event.shiftKey)
-            chat_input.val(chat_input.val() + "\n");
+            elements.chat_input.val(elements.chat_input.val() + "\n");
         // Nu lucreaza \n la input
         else
             $("#sendBtn").trigger("click");
@@ -149,40 +148,40 @@ $(window).on({
     click: function (event) {
         if (elementsActive.userContextMenu &&
             !$(event.target).hasClass("context-menu")) {
-            contextMenu?.disable();
+            variables.contextMenu?.disable();
             return;
         }
         if (elementsActive.advancedTab &&
             !elementsActive.userContextMenu &&
-            $(event.target).attr("id") !== advanced_tab.attr("id") &&
-            $(event.target).attr("id") !== advanced_tab_btn.attr("id"))
-            advanced_tab_btn.trigger("click");
+            $(event.target).attr("id") !== elements.advanced_tab.attr("id") &&
+            $(event.target).attr("id") !== elements.advanced_tab_btn.attr("id"))
+            elements.advanced_tab_btn.trigger("click");
         if (elementsActive.changeUserDropdown &&
             !elementsActive.userContextMenu &&
             $(event.target).attr("id") !== "dropdown" &&
             $(event.target).parents().attr("id") !== "dropdown" &&
             $(event.target).attr("id") !== "edit-user" &&
             $(event.target).parent().attr("id") !== "edit-user")
-            edit_user_btn.trigger("click");
+            elements.edit_user_btn.trigger("click");
     },
     contextmenu: function (event) {
-        contextMenu?.disable();
+        variables.contextMenu?.disable();
         if (($(event.target).hasClass("message") ||
             $(event.target).parents().hasClass("message")) &&
             !event.shiftKey) {
             event.preventDefault();
-            contextMenu = new ContextMenu(event);
+            variables.contextMenu = new ContextMenu(event);
         }
     },
     unload: function (event) {
         socket.emit("connect_log", {
             type: "disconnect",
-            username: currentUser,
+            username: variables.currentUser,
             timestamp: Date.now()
         });
     }
 });
-send_photo_btn.click(function (event) {
+elements.send_photo_btn.click(function (event) {
     const imgInput = $("#photoInput");
     imgInput.trigger("click");
 });
@@ -197,42 +196,42 @@ function setCookie(key, value) {
     return `${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
 }
 function login() {
-    if (login_input.val().trim() !== "") {
-        currentUser = login_input.val();
-        user_field.text(currentUser);
-        setCookie("username", currentUser);
+    if (elements.login_input.val().trim() !== "") {
+        variables.currentUser = elements.login_input.val();
+        elements.user_field.text(variables.currentUser);
+        setCookie("username", variables.currentUser);
         init();
-        login_input.val("");
-        login_form.hide();
-        chat_form.show();
-        edit_user_btn.css("pointer-events", "all");
+        elements.login_input.val("");
+        elements.login_form.hide();
+        elements.chat_form.show();
+        elements.edit_user_btn.css("pointer-events", "all");
         $("#login").off("click", login);
     }
     for (let message of $(".message"))
-        if ($(message).find(".sender").text() === currentUser)
+        if ($(message).find(".sender").text() === variables.currentUser)
             $(message).addClass("sent").find(".sender").prependTo(message);
     socket.emit("connect_log", {
         type: "connect",
-        username: currentUser
+        username: variables.currentUser
     });
 }
 function logout() {
-    console.assert(currentUser !== null, "User in null");
+    console.assert(variables.currentUser !== null, "User in null");
     socket.emit("connect_log", {
         type: "disconnect",
-        username: currentUser,
+        username: variables.currentUser,
         timestamp: Date.now()
     });
-    previousUser = currentUser;
-    currentUser = null;
-    setCookie("previousUser", previousUser);
+    variables.previousUser = variables.currentUser;
+    variables.currentUser = null;
+    setCookie("previousUser", variables.previousUser);
     removeCookie("username");
     validatePreviousUserBtn();
-    chat_form.hide();
-    login_form.css("display", "flex");
+    elements.chat_form.hide();
+    elements.login_form.css("display", "flex");
     $("#login").click(login);
-    edit_user_btn.css("pointer-events", "none");
-    dropdown.hide();
+    elements.edit_user_btn.css("pointer-events", "none");
+    elements.dropdown.hide();
     $("body").children().not("header").css({
         "pointer-events": "all",
         filter: "blur(0)"
@@ -243,13 +242,13 @@ function logout() {
     }
 }
 function sendMessage() {
-    if (chat_input.val().toString().trim() !== "") {
+    if (elements.chat_input.val().toString().trim() !== "") {
         const body = {
-            content: chat_input.val(),
-            sender: currentUser,
+            content: elements.chat_input.val(),
+            sender: variables.currentUser,
             timestamp: Date.now()
         };
-        chat_input.val("");
+        elements.chat_input.val("");
         socket.emit("text_message", body);
     }
 }
@@ -288,13 +287,13 @@ function findMessage(id) {
 }
 function validatePreviousUserBtn() {
     if (document.cookie.match(/previousUser/)) {
-        previousUser = decodeURIComponent((document.cookie.match(/(?<=previousUser=)\w+/) || [""])[0]);
+        variables.previousUser = decodeURIComponent((document.cookie.match(/(?<=previousUser=)\w+/) || [""])[0]);
         $(".last-user").show();
         $("#last-user-name")
             .css("display", "block")
-            .text(previousUser)
+            .text(variables.previousUser)
             .click(function (event) {
-            login_input.val(previousUser);
+            elements.login_input.val(variables.previousUser);
             login();
         });
     }
@@ -311,15 +310,18 @@ function splitToLength(str, len) {
     var modulo = str.length % accumulated;
     if (modulo)
         pieces.push(str.slice(accumulated));
+    console.log(pieces.length);
     return pieces;
 }
+// --------------------------------------------------
+// Messages area
 function createConnectionLog(obj) {
     let container = $("<div>", { class: "connection" }), content = $("<p>", {
         html: `${obj.username} ${obj.type === "disconnect" ? "left" : "joined"} chat`,
         class: "username"
     });
     // if (currentUser !== obj.username)
-    container.append(content).appendTo(chat_area);
+    container.append(content).appendTo(elements.chat_area);
 }
 function createTextMsg(message) {
     let container = $("<div>", { class: "message-wrap" }), _message = $("<div>", { class: "message" });
@@ -333,7 +335,7 @@ function createTextMsg(message) {
         html: getHour(message.timestamp),
         class: "date"
     });
-    if (message.sender === currentUser) {
+    if (message.sender === variables.currentUser) {
         _message.append(sender, date, content);
     }
     else {
@@ -346,11 +348,11 @@ function createTextMsg(message) {
         });
         container.css("margin-bottom", 20).append(editContainer);
     }
-    if (message.sender === currentUser)
+    if (message.sender === variables.currentUser)
         container.addClass("sent");
     container.attr("ms_id", message._id);
     container.append(_message);
-    chat_area.append(container);
+    elements.chat_area.append(container);
 }
 function createImg(image, base64) {
     let container = $("<div>", {
@@ -372,11 +374,11 @@ function createImg(image, base64) {
 function clearMsgHistory(clearFromDb = true) {
     if (clearFromDb) {
         fetch("/clear")
-            .then(res => res.text)
+            .then(res => res.text())
             .then(res => console.log(res));
         socket.emit("clear_history");
     }
-    chat_area.children().remove();
+    elements.chat_area.children().remove();
 }
 function removeEditMarks() {
     socket.emit("remove_edit_marks");
@@ -401,7 +403,7 @@ async function sendPhoto() {
         const file = element[0].files[0];
         const reader = new FileReader();
         const fileName = file.name;
-        const fileSender = currentUser;
+        const fileSender = variables.currentUser;
         const fileTimestamp = Date.now();
         reader.onloadstart = function () {
             console.log("Image processing started");
@@ -411,7 +413,7 @@ async function sendPhoto() {
         };
         reader.onload = function () {
             let base64 = this.result?.toString();
-            let separatedElement = splitToLength(base64, 1000);
+            let separatedElement = splitToLength(base64, 5000);
             let total = 0;
             for (let i of separatedElement)
                 total += i.length;
@@ -454,170 +456,5 @@ async function requestImages(stack) {
         }
         let raw = parts.join("");
         createImg(current, raw);
-    }
-}
-// --------------------------------------------------------------
-// Classes
-class ContextMenu {
-    constructor(event) {
-        this.disableScrolling();
-        this.target = event.target;
-        if ($(event.target).hasClass("message"))
-            this.selectedElement = $(event.target);
-        else
-            this.selectedElement = $(event.target).parents(".message");
-        this.contentElement = this.selectedElement.find(".content");
-        elementsActive.userContextMenu = true;
-        this.menuElement = $("<div>", { class: "context-menu" });
-        this.wrapElement = this.selectedElement.parent(".message-wrap");
-        this.id = this.wrapElement.attr("ms_id") || "";
-        let copyBtn = $("<span>", { html: "Copy" }), openLinkBtn = $("<span>", {
-            html: "Open link here",
-            class: "button-disabled"
-        }), openLinkNewTabBtn = $("<span>", {
-            html: "Open link in new tab",
-            class: "button-disabled"
-        }), editBtn = $("<span>", {
-            html: "Edit",
-            class: "button-disabled"
-        }), deleteBtn = $("<span>", {
-            html: "Delete",
-            class: "button-disabled"
-        });
-        copyBtn.click(e => {
-            this.copyText();
-        });
-        openLinkBtn.click(e => {
-            this.openLink();
-        });
-        openLinkNewTabBtn.click(e => {
-            this.openLinkNewTab();
-        });
-        editBtn.click(e => {
-            this.edit();
-        });
-        deleteBtn.click(e => {
-            this.delete();
-        });
-        if (event.target.tagName === "A") {
-            openLinkBtn.removeClass("button-disabled");
-            openLinkNewTabBtn.removeClass("button-disabled");
-        }
-        if (this.wrapElement.hasClass("sent")) {
-            editBtn.removeClass("button-disabled");
-            deleteBtn.removeClass("button-disabled");
-        }
-        this.menuElement
-            .append(copyBtn, openLinkBtn, openLinkNewTabBtn, editBtn, deleteBtn)
-            .css({
-            top: this.wrapElement.offset()?.top - 35,
-            left: this.contentElement.offset()?.left
-        })
-            .appendTo($("body"));
-        if (this.menuElement.width() + 90 >= this.selectedElement.width())
-            this.menuElement.css({
-                left: this.contentElement.offset()?.left -
-                    (this.menuElement.width() + 40)
-            });
-        if (this.wrapElement.hasClass("sent"))
-            this.menuElement.addClass("right-side");
-    }
-    copyText() {
-        let tempElement = $("<input>");
-        $("body").append(tempElement);
-        tempElement.val(this.contentElement.text()).trigger("select");
-        document.execCommand("copy");
-        tempElement.remove();
-    }
-    delete() {
-        socket.emit("delete_text_message", this.id);
-    }
-    openLink() {
-        location.assign(this.target.textContent);
-    }
-    openLinkNewTab() {
-        window.open(this.target.textContent);
-    }
-    edit() {
-        let initilaText = this.contentElement.text(), initialHtml = this.contentElement.html();
-        this.contentElement.attr("contenteditable", "true").trigger("focus");
-        const endEdit = () => {
-            if (this.contentElement.text().trim() != "" &&
-                initilaText !== this.contentElement.text())
-                socket.emit("message_edit", this.id, this.contentElement.text());
-            else
-                this.contentElement.html(initialHtml);
-            this.contentElement.attr("contenteditable", "false");
-            this.contentElement.off("focusout", endEdit);
-        };
-        this.contentElement.focusout(endEdit);
-    }
-    disable() {
-        elementsActive.userContextMenu = false;
-        this.menuElement.remove();
-        this.enableScrolling();
-    }
-    disableScrolling() {
-        let x = chat_area[0].scrollLeft, y = chat_area[0].scrollTop;
-        chat_area[0].onscroll = function () {
-            chat_area[0].scrollTo(x, y);
-        };
-    }
-    enableScrolling() {
-        chat_area[0].onscroll = function () { };
-    }
-}
-class Stack {
-    constructor() {
-        this.stack = [];
-        this.firstElement = null;
-        this.lastElement = null;
-    }
-    /** Add an element to the stack */
-    push(obj) {
-        if (this.stack.length === 0 && !this.firstElement && !this.lastElement) {
-            this.firstElement = obj;
-            this.lastElement = obj;
-        }
-        else {
-            this.lastElement = obj;
-        }
-        this.stack.push(obj);
-        return this;
-    }
-    /** Remove first element */
-    pop() {
-        if (this.lastElement === this.firstElement && this.stack.length === 1) {
-            this.firstElement = null;
-            this.lastElement = null;
-        }
-        else if (this.stack.length > 2) {
-            this.firstElement = this.stack[1];
-        }
-        else if (this.stack.length === 2) {
-            this.firstElement = this.lastElement;
-        }
-        this.stack.shift();
-        return this;
-    }
-    /** Get first element of the stack then delete it */
-    get() {
-        let firstElement;
-        if (this.stack.length > 0 && this.firstElement && this.lastElement) {
-            firstElement = this.firstElement;
-            this.pop();
-        }
-        return firstElement;
-    }
-    /** Empty stack */
-    empty() {
-        this.stack = [];
-        this.firstElement = null;
-        this.lastElement = null;
-        return this;
-    }
-    /** Stack length */
-    get length() {
-        return this.stack.length;
     }
 }

@@ -28,17 +28,17 @@
     </div>
     <div id="dropdown">
       <p id="user"></p>
-      <button id="change-username" onclick="logout()">
+      <button id="change-username">
         Log out
       </button>
       <button id="toggle-advanced-tab">
         Advanced
       </button>
       <div id="advanced-tab" style="display: none;">
-        <button class="clear-history-button" onclick="clearMsgHistory()">
+        <button class="clear-history-button">
           Clear history
         </button>
-        <button class="clear-all-logs-button" onclick="clearAllLogs()">
+        <button class="clear-all-logs-button">
           Clear logs
         </button>
       </div>
@@ -71,7 +71,7 @@
       <div id="chat-area"></div>
       <div class="chat-input-wrapper">
         <input type="text" name="" placeholder="Message" id="chat-input">
-        <button id="sendBtn" onclick="sendMessage()" class="dark">
+        <button id="sendBtn" class="dark">
           Send
         </button>
         <button id="photoBtn" class="dark">
@@ -80,11 +80,14 @@
       </div>
     </div>
   </div>
-  <input type="file" accept="image/*" id="photoInput" onchange="sendPhoto(event)"></input>
+  <input type="file" accept="image/*" id="photoInput"></input>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="./scripts/jquery.js"></script>
-  <script src="./scripts/main.js"></script>
+
+  <script src="./scripts/declarations.js" type="module"></script>
+  <script src="./scripts/structures.js" type="module"></script>
+  <script src="./scripts/main.js" type="module"></script>
 </body>
 
 </html>
