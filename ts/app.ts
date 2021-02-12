@@ -6,7 +6,7 @@ import cors from "cors";
 import path from "path";
 import { TextMessage, ConnectionLog, Image } from "./models";
 import { Socket, Server } from "socket.io";
-import { writeFile, readFile, existsSync as exists } from "fs";
+import { writeFile, readFile, readdir, unlink, existsSync as exists } from "fs";
 import { MessageTypes as t } from "./db_types";
 
 const app: Application = express(),
@@ -15,7 +15,7 @@ const app: Application = express(),
 
 require("mongoose").Promise = global.Promise;
 
-const saveImgPath: string = path.join(__dirname, "saved_img");
+const savedImgPath: string = path.join(__dirname, "saved_img");
 
 // Open mongodb connection
 connect("mongodb://localhost:27017/Chat", {
@@ -46,13 +46,7 @@ io.on("connection", (socket: Socket): void => {
   });
 
   socket.on("text_message", async (message: t.TextMessage) => {
-    console.log(message);
-
-    let msg = new TextMessage({
-      content: message.content,
-      sender: message.sender,
-      timestamp: message.timestamp
-    } as t.TextMessage);
+    const msg = new TextMessage(message);
 
     await msg.save().catch(function (err): void {
       console.log(chalk.hex("#e84118")(err), "Message saved");
@@ -67,7 +61,15 @@ io.on("connection", (socket: Socket): void => {
   });
 
   socket.on("clear_history", async () => {
-    console.log("Clearing history")
+    readdir(savedImgPath, (err: Error, files: string[]) => {
+      if (err) throw err;
+
+      for (const fileName of files)
+        unlink(path.join(savedImgPath, fileName), err => {
+          if (err) throw err;
+        });
+    });
+
     await TextMessage.deleteMany({}).catch(
       logError(socket, "Clear History, Text Messages")
     );
@@ -75,6 +77,7 @@ io.on("connection", (socket: Socket): void => {
       logError(socket, "Clear History, Connection Logs")
     );
     await Image.deleteMany({}).catch(logError(socket, "Clear History, Images"));
+
     socket.broadcast.emit("clear_history");
   });
 
@@ -92,11 +95,6 @@ io.on("connection", (socket: Socket): void => {
     io.sockets.emit("message_edit", id, content);
   });
 
-  socket.on(
-    "image",
-    async (rawImg: any, timestamp: number, sender: string) => {}
-  );
-
   socket.on("delete_text_message", async (id: string) => {
     await TextMessage.findByIdAndRemove(id).catch(
       logError(socket, "Delete Text Message")
@@ -110,56 +108,73 @@ io.on("connection", (socket: Socket): void => {
   });
 
   // Images implementation
-  let imageProcessing: boolean = false;
-  let currentImageName: string;
-  let parts: string[] = [];
-  let currentImgId: string;
+  let imageProcessing: boolean = false,
+    parts: string[] = [],
+    currentImg: t.Image;
 
-  socket.on("request_image", (data: t.Image) => {});
-
-  socket.on("image_data", async (data: t.Image) => {
-    if (!imageProcessing) {
-      currentImageName = data.imageName;
+  socket.on("image_request", async (image: t.Image) => {
+    if (exists(path.join(savedImgPath, image.title))) {
       imageProcessing = true;
-      let document = (await new Image(data)
-        .save()
-        .catch(logError(socket, "Image Data"))) as Document;
-      currentImgId = document.toObject()._id;
+      currentImg = image;
+
+      readFile(
+        path.join(savedImgPath, image.title),
+        { encoding: "base64" },
+        (err: NodeJS.ErrnoException, data: string) => {
+          parts = splitToLength(data, 5000);
+
+          io.sockets.emit("image_data", image);
+          for (const part of parts) socket.emit("image_part", image, part);
+          socket.emit("image_send_end", image);
+
+          imageProcessing = false;
+          currentImg = null;
+        }
+      );
     }
   });
 
-  socket.on("image_part", async (imageName: string, part: string) => {
-    if (
-      imageName === currentImageName &&
-      !exists(path.join(saveImgPath, currentImageName))
-    )
-      parts.push(part);
-    else if (imageName !== currentImageName) throw Error("Image name error");
+  socket.on("image_data", async (image: t.Image) => {
+    console.log("Got data", image);
+    if (!imageProcessing) {
+      imageProcessing = true;
+      currentImg = image;
+
+      let document = (await new Image(image)
+        .save()
+        .catch(logError(socket, "Image Data"))) as Document;
+      currentImg._id = document.toObject()._id;
+    }
   });
 
-  socket.on("image_send_end", (data: t.Image) => {
-    if (imageProcessing && currentImageName) {
+  socket.on("image_part", async (image: t.Image, part: string) => {
+    if (
+      image.title === currentImg.title &&
+      !exists(path.join(savedImgPath, currentImg.title))
+    )
+      parts.push(part);
+    else if (image.title !== currentImg.title) throw Error("Image name error");
+  });
+
+  socket.on("image_send_end", (image: t.Image) => {
+    if (imageProcessing && currentImg.title) {
       const base64 = parts.join("").replace(/^data:image\/\w+;base64,/, "");
 
       writeFile(
-        path.join(saveImgPath, currentImageName),
+        path.join(savedImgPath, currentImg.title),
         base64,
         { encoding: "base64" },
-        () => {
-          io.sockets.emit("image_send_end");
-
-          // Sending back
-          io.sockets.emit("image_data", data);
-          for (let part of parts)
-            io.sockets.emit("image_part", currentImageName, part);
-          io.sockets.emit("image_send_end", data, currentImgId);
-
-          imageProcessing = false;
-          currentImageName = null;
-          currentImgId = null;
-          parts = [];
-        }
+        () => {}
       );
+
+      // Sending back
+      io.sockets.emit("image_data", currentImg);
+      for (let part of parts) io.sockets.emit("image_part", currentImg, part);
+      io.sockets.emit("image_send_end", currentImg);
+
+      imageProcessing = false;
+      currentImg = null;
+      parts = [];
     }
   });
 });
@@ -185,11 +200,11 @@ app.get("/init", async (req: Request, res: Response, next: NextFunction) => {
       connectionLogs: Document[] = await ConnectionLog.find({}),
       images: Document[] = await Image.find({});
 
-    let sorted: (t.TextMessage | t.Image | t.ConnectionLog)[] = sortByTimestamp([
-      textMessages,
-      connectionLogs,
-      images
-    ]);
+    let sorted: (
+      | t.TextMessage
+      | t.Image
+      | t.ConnectionLog
+    )[] = sortByTimestamp([textMessages, connectionLogs, images]);
 
     res.json(sorted);
   } catch {
@@ -238,16 +253,14 @@ function sortByTimestamp(
   return allElements;
 }
 
-if (!(String as any).prototype.splitToLength) {
-  (String as any).prototype.splitToLength = function (len: number) {
-    if (len === undefined || len > this.length) {
-      len = this.length;
-    }
-    var yardstick = new RegExp(`.{${len}}`, "g");
-    var pieces = this.match(yardstick);
-    var accumulated = pieces.length * len;
-    var modulo = this.length % accumulated;
-    if (modulo) pieces.push(this.slice(accumulated));
-    return pieces;
-  };
+function splitToLength(str: string, len: number) {
+  if (len === undefined || len > str.length) {
+    len = str.length;
+  }
+  var yardstick = new RegExp(`.{${len}}`, "g");
+  var pieces = str.match(yardstick);
+  var accumulated = pieces.length * len;
+  var modulo = str.length % accumulated;
+  if (modulo) pieces.push(str.slice(accumulated));
+  return pieces;
 }

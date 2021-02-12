@@ -7,7 +7,7 @@ exports.TextMessage = mongoose_1.model("Text Message", new mongoose_1.Schema({
         type: String,
         required: true
     },
-    sender: {
+    author: {
         type: String,
         required: true
     },
@@ -15,12 +15,12 @@ exports.TextMessage = mongoose_1.model("Text Message", new mongoose_1.Schema({
         type: Number,
         required: true
     },
-    edited: {
+    is_edited: {
         type: Boolean,
         default: false,
         required: false
     },
-    name: {
+    object_type: {
         type: String,
         required: false,
         default: "text_message"
@@ -32,7 +32,7 @@ exports.ConnectionLog = mongoose_1.model("Connection Log", new mongoose_1.Schema
         lowercase: true,
         required: true
     },
-    username: {
+    author: {
         type: String,
         required: true
     },
@@ -40,18 +40,18 @@ exports.ConnectionLog = mongoose_1.model("Connection Log", new mongoose_1.Schema
         type: Number,
         required: true
     },
-    name: {
+    object_type: {
         type: String,
         required: false,
         default: "connection_log"
     }
 }), "connection_logs");
 exports.Image = mongoose_1.model("Image File", new mongoose_1.Schema({
-    sender: {
+    author: {
         type: String,
         required: true
     },
-    imageName: {
+    title: {
         type: String,
         required: true
     },
@@ -59,7 +59,7 @@ exports.Image = mongoose_1.model("Image File", new mongoose_1.Schema({
         type: Number,
         required: true
     },
-    name: {
+    object_type: {
         type: String,
         required: false,
         default: "image"

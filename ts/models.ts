@@ -7,7 +7,7 @@ export const TextMessage = model(
       type: String,
       required: true
     },
-    sender: {
+    author: {
       type: String,
       required: true
     },
@@ -15,12 +15,12 @@ export const TextMessage = model(
       type: Number,
       required: true
     },
-    edited: {
+    is_edited: {
       type: Boolean,
       default: false,
       required: false
     },
-    name: {
+    object_type: {
       type: String,
       required: false,
       default: "text_message"
@@ -37,7 +37,7 @@ export const ConnectionLog = model(
       lowercase: true,
       required: true
     },
-    username: {
+    author: {
       type: String,
       required: true
     },
@@ -45,7 +45,7 @@ export const ConnectionLog = model(
       type: Number,
       required: true
     },
-    name: {
+    object_type: {
       type: String,
       required: false,
       default: "connection_log"
@@ -57,11 +57,11 @@ export const ConnectionLog = model(
 export const Image = model(
   "Image File",
   new Schema({
-    sender: {
+    author: {
       type: String,
       required: true
     },
-    imageName: {
+    title: {
       type: String,
       required: true
     },
@@ -69,7 +69,7 @@ export const Image = model(
       type: Number,
       required: true
     },
-    name: {
+    object_type: {
       type: String,
       required: false,
       default: "image"

@@ -1,4 +1,5 @@
 import { ContextMenu } from "./structures.js";
+import { Socket } from "socket.io";
 
 export const elements = {
   login_form: $("#login-wrapper"),
@@ -17,7 +18,7 @@ export const elements = {
   logout_btn: $("#change-username"),
   advanced_tab_btn: $("#toggle-advanced-tab"),
   advanced_tab: $("#advanced-tab"),
-  photo_input: $("#photoInput"),
+  photo_input: $("#photoInput")
 };
 
 export let variables: {
@@ -33,11 +34,17 @@ export let variables: {
 export let imageSettings: {
     transition: boolean;
     parts: string[];
-    currentName: string;
+    title: string;
+    reset(): void;
   } = {
     transition: false,
     parts: [],
-    currentName: null
+    title: null,
+    reset() {
+      this.parts = [];
+      this.title = null;
+      this.transition = false;
+    }
   },
   elementsActive: {
     changeUserDropdown: boolean;
@@ -50,4 +57,4 @@ export let imageSettings: {
   };
 
 declare const io: Function;
-export const socket = io();
+export const socket: Socket = io();

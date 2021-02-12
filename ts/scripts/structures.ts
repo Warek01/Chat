@@ -152,8 +152,9 @@ export class ContextMenu {
   }
 }
 
+// ---------- Stack ----------
 export class Stack<Type> {
-  private stack: Type[] = [];
+  private data: Type[] = [];
   private firstElement: Type = null;
   private lastElement: Type = null;
 
@@ -161,46 +162,47 @@ export class Stack<Type> {
 
   /** Add an element to the stack */
   push(obj: Type): Stack<Type> {
-    if (this.stack.length === 0 && !this.firstElement && !this.lastElement) {
+    if (this.data.length === 0 && !this.firstElement && !this.lastElement) {
       this.firstElement = obj;
       this.lastElement = obj;
     } else {
       this.lastElement = obj;
     }
-    this.stack.push(obj);
+    this.data.push(obj);
     return this;
   }
 
   /** Remove first element */
   pop(): Stack<Type> {
-    if (this.lastElement === this.firstElement && this.stack.length === 1) {
+    if (this.lastElement === this.firstElement && this.data.length === 1) {
       this.firstElement = null;
       this.lastElement = null;
-    } else if (this.stack.length > 2) {
-      this.firstElement = this.stack[1];
-    } else if (this.stack.length === 2) {
+    } else if (this.data.length > 2) {
+      this.firstElement = this.data[1];
+    } else if (this.data.length === 2) {
       this.firstElement = this.lastElement;
     }
 
-    this.stack.shift();
+    this.data.pop();
     return this;
   }
 
   /** Get first element of the stack then delete it */
   get(): Type {
-    let firstElement: Type;
+    if (this.data.length > 0) {
+      if (this.data.length === 1) {
+        this.lastElement = null;
+        this.firstElement = null;
+      } else if (this.data.length === 2) this.firstElement = this.lastElement;
+      else this.firstElement = this.data[1];
 
-    if (this.stack.length > 0 && this.firstElement && this.lastElement) {
-      firstElement = this.firstElement;
-      this.pop();
+      return this.data.shift();
     }
-
-    return firstElement;
   }
 
   /** Empty stack */
   empty(): Stack<Type> {
-    this.stack = [];
+    this.data = [];
     this.firstElement = null;
     this.lastElement = null;
     return this;
@@ -208,18 +210,43 @@ export class Stack<Type> {
 
   /** Stack length */
   get length(): int {
-    return this.stack.length;
+    return this.data.length;
   }
 }
 
 // ---------- Queue ----------
 export class Queue<Type> {
-  private data: Type[];
+  private data: Type[] = [];
 
-  constructor() {
+  constructor() {}
 
+  /** Push an element to the queue */
+  push(element: Type | Type[]): Queue<Type> {
+    if (Array.isArray(element) && element.length > 0)
+      for (let em of element) this.data.push(em);
+    else this.data.push(element as Type);
+
+    return this;
   }
 
+  /** Get the first element of the queue and remove it */
+  get(): Type | null {
+    if (this.data.length > 0) return this.data.shift();
+    else return null;
+  }
+
+  isEmpty(): boolean {
+    return this.data.length === 0;
+  }
+
+  /** Empty queue */
+  empty(): Queue<Type> {
+    if (this.data.length > 0) this.data = [];
+
+    return this;
+  }
+
+  /** Queue length */
   get length(): int {
     return this.data.length;
   }

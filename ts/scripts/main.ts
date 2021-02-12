@@ -1,5 +1,5 @@
-import { MessageTypes as t, int,  } from "../db_types";
-import { ContextMenu, Stack, Queue } from "./structures.js";
+import { MessageTypes as t } from "../db_types";
+import { ContextMenu, Queue } from "./structures.js";
 import {
   elements,
   elementsActive,
@@ -20,7 +20,7 @@ $(document).ready(function (event): void {
 
     socket.emit("connect_log", {
       type: "connect",
-      username: variables.currentUser,
+      author: variables.currentUser,
       timestamp: Date.now()
     } as t.ConnectionLog);
   } else {
@@ -128,9 +128,6 @@ socket
     if (message) message.remove();
     else throw new Error(`Message with id "${id}" not found`);
   })
-  .on("image", (image: t.Image) => {
-    createImg(image, null);
-  })
   .on("remove_edit_marks", () => {
     $(".edited-mark")
       .parent(".message-wrap")
@@ -139,19 +136,20 @@ socket
       .remove();
   })
   // Image implementation
-  .on("image_data", (data: t.Image) => {
+  .on("image_data", (image: t.Image) => {
     if (!imageSettings.transition) {
-      imageSettings.currentName = data.imageName;
+      imageSettings.title = image.title;
       imageSettings.transition = true;
+      createImgMsg(image);
     }
   })
-  .on("image_part", async (imageName: string, part: string) => {
-    if (imageName === imageSettings.currentName) imageSettings.parts.push(part);
+  .on("image_part", async (image: t.Image, part: string) => {
+    if (image.title === imageSettings.title) imageSettings.parts.push(part);
     else throw Error("Image name error");
   })
-  .on("image_send_end", (data: t.Image, id: string) => {
+  .on("image_send_end", (data: t.Image) => {
     if (imageSettings.transition) {
-      createImg(data, id);
+      fillImg(data);
       imageSettings.transition = false;
     }
   });
@@ -200,7 +198,7 @@ $(window).on({
   unload: function (event): void {
     socket.emit("connect_log", {
       type: "disconnect",
-      username: variables.currentUser,
+      author: variables.currentUser,
       timestamp: Date.now()
     } as t.ConnectionLog);
   }
@@ -247,7 +245,7 @@ function login(): void {
 
   socket.emit("connect_log", {
     type: "connect",
-    username: variables.currentUser
+    author: variables.currentUser
   } as t.ConnectionLog);
 }
 
@@ -256,7 +254,7 @@ function logout(): void {
 
   socket.emit("connect_log", {
     type: "disconnect",
-    username: variables.currentUser,
+    author: variables.currentUser,
     timestamp: Date.now()
   } as t.ConnectionLog);
 
@@ -287,7 +285,7 @@ function sendMessage(): void {
   if (elements.chat_input.val()!.toString().trim() !== "") {
     const body: t.TextMessage = {
       content: elements.chat_input.val() as string,
-      sender: variables.currentUser as string,
+      author: variables.currentUser as string,
       timestamp: Date.now() as number
     };
 
@@ -299,13 +297,13 @@ function sendMessage(): void {
 
 async function init(): Promise<any> {
   clearMsgHistory(false);
-  const stack = new Stack<t.Image>();
+  const queue = new Queue<t.Image>();
 
   let req: Response = await fetch("/init"),
     res: (t.TextMessage | t.ConnectionLog | t.Image)[] = await req.json();
 
   for (let em of res) {
-    switch (em.name) {
+    switch (em.object_type) {
       case "text_message":
         createTextMsg(em as t.TextMessage);
         break;
@@ -313,11 +311,13 @@ async function init(): Promise<any> {
         createConnectionLog(em as t.ConnectionLog);
         break;
       case "image":
-        stack.push(em as t.Image);
+        queue.push(em as t.Image);
+        createImgMsg(em as t.Image);
         break;
     }
   }
-  requestImages(stack);
+  console.log(res, queue);
+  initImages(queue);
 }
 
 // https://stackoverflow.com/questions/8667070/javascript-regular-expression-to-validate-url
@@ -370,7 +370,6 @@ function splitToLength(str: string, len: number) {
   var accumulated = pieces.length * len;
   var modulo = str.length % accumulated;
   if (modulo) pieces.push(str.slice(accumulated));
-  console.log(pieces.length)
   return pieces;
 }
 
@@ -380,7 +379,7 @@ function splitToLength(str: string, len: number) {
 function createConnectionLog(obj: t.ConnectionLog): void {
   let container = $("<div>", { class: "connection" }),
     content = $("<p>", {
-      html: `${obj.username} ${
+      html: `${obj.author} ${
         obj.type === "disconnect" ? "left" : "joined"
       } chat`,
       class: "username"
@@ -399,7 +398,7 @@ function createTextMsg(message: t.TextMessage): void {
       class: "content"
     }),
     sender = $("<span>", {
-      html: message.sender,
+      html: message.author,
       class: "sender"
     }),
     date = $("<span>", {
@@ -407,13 +406,13 @@ function createTextMsg(message: t.TextMessage): void {
       class: "date"
     });
 
-  if (message.sender === variables.currentUser) {
+  if (message.author === variables.currentUser) {
     _message.append(sender, date, content);
   } else {
     _message.append(content, sender, date);
   }
 
-  if (message.edited) {
+  if (message.is_edited) {
     let editContainer = $("<span>", {
       html: "Edited",
       class: "edited-mark"
@@ -422,40 +421,44 @@ function createTextMsg(message: t.TextMessage): void {
     container.css("margin-bottom", 20).append(editContainer);
   }
 
-  if (message.sender === variables.currentUser) container.addClass("sent");
+  if (message.author === variables.currentUser) container.addClass("sent");
 
   container.attr("ms_id", message._id as string);
   container.append(_message);
   elements.chat_area.append(container);
 }
 
-function createImg(image: t.Image, base64?: string): void {
-  let container = $("<div>", {
-    class: "message-wrap"
-  });
+function createImgMsg(image: t.Image): void {
+  let container = $("<div>", { class: "message-wrap" }),
+    img = $("<img>", { class: "img-message" });
 
-  if (imageSettings.parts.length > 0 && image._id !== null) {
-    const base64 = imageSettings.parts.join("");
+  container.attr("ms_id", image._id);
+  container.append(img).appendTo(elements.chat_area);
+}
 
-    let imageElement = new Image();
-    imageElement.src = base64;
-    imageElement.className = "img-message";
-
-    container.append(imageElement);
-
-    imageSettings.parts = [];
-    imageSettings.currentName = null;
-  } else {
+async function initImages(queue: Queue<t.Image>) {
+  while (queue.length) {
+    let img = queue.get();
+    socket.emit("image_request", img);
   }
+}
 
-  $("body").append(container);
+function fillImg(img: t.Image): void {
+  let base64 = imageSettings.parts.join("");
+  const container = findMessage(img._id);
+  base64 = "data:image/jpeg;base64," + base64;
+
+  (container.find(".img-message")[0] as HTMLImageElement).src = base64;
+  imageSettings.reset();
 }
 
 function clearMsgHistory(clearFromDb: boolean = true): void {
   if (clearFromDb) {
     fetch("/clear")
       .then(res => res.text())
-      .then(res => console.log(res));
+      .then(res =>
+        console.log("Cleared from db:", res === "OK" ? "yes" : "no")
+      );
     socket.emit("clear_history");
   }
 
@@ -481,29 +484,44 @@ function getHour(timestamp: number): string {
 
 async function sendPhoto(): Promise<any> {
   const element = $("#photoInput");
-  if (imageSettings.transition) return;
+
+  if (imageSettings.transition)
+    setTimeout(() => {
+      sendPhoto();
+    }, 1000);
 
   if ((element[0] as any).files.length > 0) {
     imageSettings.transition = true;
     const file = (element[0] as any).files[0];
     const reader = new FileReader();
 
-    const fileName = file.name;
-    const fileSender = variables.currentUser;
-    const fileTimestamp = Date.now();
+    const currentImg: t.Image = {
+      author: variables.currentUser,
+      timestamp: Date.now(),
+      title: file.name
+    };
 
-    reader.onloadstart = function () {
+    reader.onloadstart = function (): void {
+      console.group("Image processing");
       console.log("Image processing started");
     };
 
-    reader.onloadend = function () {
+    reader.onloadend = function (): void {
       console.log("Image processing done");
+      console.groupEnd();
     };
 
-    reader.onload = function () {
+    reader.onerror = function (): void {
+      console.log("Image processing error");
+      console.log(this.error);
+      console.groupEnd();
+    };
+
+    reader.onload = function (): void {
       let base64: string = this.result?.toString();
 
       let separatedElement: string[] = splitToLength(base64, 5000);
+      console.log("Total parts:", separatedElement.length);
 
       let total: number = 0;
       for (let i of separatedElement) total += i.length;
@@ -512,48 +530,16 @@ async function sendPhoto(): Promise<any> {
       base64 = null;
       total = null;
 
-      socket.emit("image_data", {
-        imageName: fileName,
-        sender: fileSender,
-        timestamp: fileTimestamp
-      } as t.Image);
+      socket.emit("image_data", currentImg);
 
       for (let part of separatedElement) {
-        socket.emit("image_part", fileName, part);
+        socket.emit("image_part", currentImg, part);
       }
 
-      socket.emit("image_send_end", {
-        imageName: fileName,
-        timestamp: fileTimestamp,
-        sender: fileSender
-      } as t.Image);
+      socket.emit("image_send_end", currentImg);
     };
 
     reader.readAsDataURL(file);
-  }
-}
-
-async function requestImages(stack: Stack<t.Image>): Promise<any> {
-  while (stack.length) {
-    const current: t.Image = stack.get();
-
-    let index: number = 0;
-    let parts: string[] = [];
-
-    while (parts.length <= 1000) {
-      let req = await fetch(`/getImage/${current._id}/${index}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "text/plain",
-          "Cache-Control": "no-cache"
-        }
-      });
-
-      let res = await req.text();
-      parts.push(res);
-    }
-
-    let raw: string = parts.join("");
-    createImg(current, raw);
+    imageSettings.transition = false;
   }
 }

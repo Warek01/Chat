@@ -15,7 +15,7 @@ export const elements = {
     logout_btn: $("#change-username"),
     advanced_tab_btn: $("#toggle-advanced-tab"),
     advanced_tab: $("#advanced-tab"),
-    photo_input: $("#photoInput"),
+    photo_input: $("#photoInput")
 };
 export let variables = {
     currentUser: null,
@@ -25,7 +25,12 @@ export let variables = {
 export let imageSettings = {
     transition: false,
     parts: [],
-    currentName: null
+    title: null,
+    reset() {
+        this.parts = [];
+        this.title = null;
+        this.transition = false;
+    }
 }, elementsActive = {
     changeUserDropdown: false,
     advancedTab: false,
