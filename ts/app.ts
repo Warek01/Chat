@@ -6,8 +6,10 @@ import cors from "cors";
 import path from "path";
 import { TextMessage, ConnectionLog, Image } from "./models";
 import { Socket, Server } from "socket.io";
-import { writeFile, readFile, readdir, unlink, existsSync as exists } from "fs";
+import { readFile, readdir, unlink, existsSync as exists } from "fs";
 import { MessageTypes as t } from "./db_types";
+import sharp from "sharp";
+import * as base64ToArrBuf from "base64-arraybuffer";
 
 const app: Application = express(),
   server = createServer(app),
@@ -140,6 +142,8 @@ io.on("connection", (socket: Socket): void => {
       imageProcessing = true;
       currentImg = image;
 
+      // if (!exists(path.join(savedImgPath, currentImg.title)))
+
       let document = (await new Image(image)
         .save()
         .catch(logError(socket, "Image Data"))) as Document;
@@ -148,50 +152,45 @@ io.on("connection", (socket: Socket): void => {
   });
 
   socket.on("image_part", async (image: t.Image, part: string) => {
-    if (
-      image.title === currentImg.title &&
-      !exists(path.join(savedImgPath, currentImg.title))
-    )
-      parts.push(part);
+    if (image.title === currentImg.title) parts.push(part);
     else if (image.title !== currentImg.title) throw Error("Image name error");
   });
 
   socket.on("image_send_end", (image: t.Image) => {
     if (imageProcessing && currentImg.title) {
-      const base64 = parts.join("").replace(/^data:image\/\w+;base64,/, "");
+      const base64 = parts.join("").replace(/^data:image\/\w*;base64,/, "");
 
-      writeFile(
-        path.join(savedImgPath, currentImg.title),
-        base64,
-        { encoding: "base64" },
-        () => {}
-      );
+      sharp(Buffer.from(base64ToArrBuf.decode(base64)))
+        .resize(1280, 720, { fit: "outside" })
+        .toFile(path.join(savedImgPath, image.title))
+        .catch(err => {
+          console.log("Error resizin file", err);
+        })
+        // Sending back
+        .then(() => {
+          readFile(
+            path.join(savedImgPath, image.title),
+            { encoding: "base64" },
+            (err: Error, data: string) => {
+              if (err) throw err;
+              parts = splitToLength(data, 20 * 2 ** 10);
 
-      // Sending back
-      io.sockets.emit("image_data", currentImg);
-      for (let part of parts) io.sockets.emit("image_part", currentImg, part);
-      io.sockets.emit("image_send_end", currentImg);
+              io.sockets.emit("image_data", currentImg);
+              for (let part of parts)
+                io.sockets.emit("image_part", currentImg, part);
+              io.sockets.emit("image_send_end", currentImg);
 
-      imageProcessing = false;
-      currentImg = null;
-      parts = [];
+              imageProcessing = false;
+              currentImg = null;
+              parts = [];
+            }
+          );
+        });
     }
   });
 });
 
 app.use(express.static(path.join(__dirname, "public")), cors());
-
-let imageProcessing: boolean = false;
-app.get(
-  "/getImage/:_id/:part",
-  (req: Request, res: Response, next: NextFunction): void => {
-    if (!imageProcessing) {
-      if (Number(req.params.part) === 999) {
-        imageProcessing = false;
-      }
-    }
-  }
-);
 
 // Initialization process (message history) sending to each new connected user
 app.get("/init", async (req: Request, res: Response, next: NextFunction) => {

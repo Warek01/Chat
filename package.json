@@ -12,6 +12,7 @@
   "license": "ISC",
   "dependencies": {
     "@mongoosejs/double": "^0.2.0",
+    "@types/base64-arraybuffer": "^0.1.0",
     "@types/chalk": "^2.2.0",
     "@types/cors": "^2.8.8",
     "@types/express": "^4.17.9",
@@ -20,13 +21,16 @@
     "@types/mongoose": "^5.10.1",
     "@types/multiparty": "0.0.32",
     "@types/node": "^14.14.10",
+    "@types/sharp": "^0.27.1",
     "@types/socket.io": "^2.1.11",
+    "base64-arraybuffer": "^0.2.0",
     "chalk": "^4.1.0",
     "cors": "^2.8.5",
     "express": "^4.17.1",
     "express-fileupload": "^1.2.1",
     "mongoose": "^5.10.19",
     "mongoose-int32": "^0.4.1",
+    "sharp": "^0.27.1",
     "socket.io": "^3.0.3"
   }
 }

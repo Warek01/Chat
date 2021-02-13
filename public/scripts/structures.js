@@ -1,55 +1,66 @@
 import { elements, elementsActive, socket } from "./declarations.js";
 export class ContextMenu {
     constructor(event) {
+        this.contentElement = null;
         this.disableScrolling();
-        this.target = event.target;
-        if ($(event.target).hasClass("message"))
+        this.target = $(event.target);
+        if (this.target.hasClass("message"))
             this.selectedElement = $(event.target);
         else
-            this.selectedElement = $(event.target).parents(".message");
+            this.selectedElement = $(event.target).parents(".message`");
         this.contentElement = this.selectedElement.find(".content");
         elementsActive.userContextMenu = true;
         this.menuElement = $("<div>", { class: "context-menu" });
-        this.wrapElement = this.selectedElement.parent(".message-wrap");
-        this.id = this.wrapElement.attr("ms_id") || "";
-        let copyBtn = $("<span>", { html: "Copy" }), openLinkBtn = $("<span>", {
-            html: "Open link here",
-            class: "button-disabled"
-        }), openLinkNewTabBtn = $("<span>", {
-            html: "Open link in new tab",
-            class: "button-disabled"
-        }), editBtn = $("<span>", {
-            html: "Edit",
-            class: "button-disabled"
-        }), deleteBtn = $("<span>", {
-            html: "Delete",
-            class: "button-disabled"
-        });
-        copyBtn.click(e => {
-            this.copyText();
-        });
-        openLinkBtn.click(e => {
-            this.openLink();
-        });
-        openLinkNewTabBtn.click(e => {
-            this.openLinkNewTab();
-        });
-        editBtn.click(e => {
-            this.edit();
-        });
-        deleteBtn.click(e => {
-            this.delete();
-        });
-        if (event.target.tagName === "A") {
-            openLinkBtn.removeClass("button-disabled");
-            openLinkNewTabBtn.removeClass("button-disabled");
-        }
-        if (this.wrapElement.hasClass("sent")) {
-            editBtn.removeClass("button-disabled");
-            deleteBtn.removeClass("button-disabled");
+        this.wrapElement = this.target.hasClass("message-wrap")
+            ? this.target
+            : this.target.parents(".message-wrap");
+        this.id = this.wrapElement.attr("ms_id");
+        this.objectType = this.wrapElement.attr("object_type");
+        console.log(this.objectType, this.wrapElement[0], this.target);
+        switch (this.objectType) {
+            case "text_message":
+                let copyBtn = $("<span>", { html: "Copy" }), openLinkBtn = $("<span>", {
+                    html: "Open link here",
+                    class: "button-disabled"
+                }), openLinkNewTabBtn = $("<span>", {
+                    html: "Open link in new tab",
+                    class: "button-disabled"
+                }), editBtn = $("<span>", {
+                    html: "Edit",
+                    class: "button-disabled"
+                }), deleteBtn = $("<span>", {
+                    html: "Delete",
+                    class: "button-disabled"
+                });
+                copyBtn.click(e => {
+                    this.copyText();
+                });
+                openLinkBtn.click(e => {
+                    this.openLink();
+                });
+                openLinkNewTabBtn.click(e => {
+                    this.openLinkNewTab();
+                });
+                editBtn.click(e => {
+                    this.edit();
+                });
+                deleteBtn.click(e => {
+                    this.delete();
+                });
+                if (event.target.tagName === "A") {
+                    openLinkBtn.removeClass("button-disabled");
+                    openLinkNewTabBtn.removeClass("button-disabled");
+                }
+                if (this.wrapElement.hasClass("sent")) {
+                    editBtn.removeClass("button-disabled");
+                    deleteBtn.removeClass("button-disabled");
+                }
+                this.menuElement.append(copyBtn, openLinkBtn, openLinkNewTabBtn, editBtn, deleteBtn);
+                break;
+            case "image":
+                break;
         }
         this.menuElement
-            .append(copyBtn, openLinkBtn, openLinkNewTabBtn, editBtn, deleteBtn)
             .css({
             top: this.wrapElement.offset()?.top - 35,
             left: this.contentElement.offset()?.left
@@ -74,10 +85,10 @@ export class ContextMenu {
         socket.emit("delete_text_message", this.id);
     }
     openLink() {
-        location.assign(this.target.textContent);
+        location.assign(this.target[0].textContent);
     }
     openLinkNewTab() {
-        window.open(this.target.textContent);
+        window.open(this.target[0].textContent);
     }
     edit() {
         let initilaText = this.contentElement.text(), initialHtml = this.contentElement.html();

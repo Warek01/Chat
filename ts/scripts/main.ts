@@ -186,8 +186,8 @@ $(window).on({
   contextmenu: function (event): void {
     variables.contextMenu?.disable();
     if (
-      ($(event.target).hasClass("message") ||
-        $(event.target).parents().hasClass("message")) &&
+      ($(event.target).hasClass("message-wrap") ||
+        $(event.target).parents().hasClass("message-wrap")) &&
       !event.shiftKey
     ) {
       event.preventDefault();
@@ -386,7 +386,10 @@ function createConnectionLog(obj: t.ConnectionLog): void {
     });
 
   // if (currentUser !== obj.username)
-  container.append(content).appendTo(elements.chat_area);
+  container
+    .append(content)
+    .attr("object_type", obj.object_type)
+    .appendTo(elements.chat_area);
 }
 
 function createTextMsg(message: t.TextMessage): void {
@@ -423,17 +426,22 @@ function createTextMsg(message: t.TextMessage): void {
 
   if (message.author === variables.currentUser) container.addClass("sent");
 
-  container.attr("ms_id", message._id as string);
-  container.append(_message);
-  elements.chat_area.append(container);
+  container
+    .attr("ms_id", message._id as string)
+    .attr("object_type", message.object_type)
+    .append(_message)
+    .appendTo(elements.chat_area);
 }
 
 function createImgMsg(image: t.Image): void {
   let container = $("<div>", { class: "message-wrap" }),
     img = $("<img>", { class: "img-message" });
 
-  container.attr("ms_id", image._id);
-  container.append(img).appendTo(elements.chat_area);
+  container
+    .attr("ms_id", image._id)
+    .attr("object_type", "image")
+    .append(img)
+    .appendTo(elements.chat_area);
 }
 
 async function initImages(queue: Queue<t.Image>) {
@@ -446,7 +454,8 @@ async function initImages(queue: Queue<t.Image>) {
 function fillImg(img: t.Image): void {
   let base64 = imageSettings.parts.join("");
   const container = findMessage(img._id);
-  base64 = "data:image/jpeg;base64," + base64;
+  if (!base64.startsWith("data:image"))
+    base64 = "data:image/jpeg;base64," + base64;
 
   (container.find(".img-message")[0] as HTMLImageElement).src = base64;
   imageSettings.reset();
@@ -520,7 +529,7 @@ async function sendPhoto(): Promise<any> {
     reader.onload = function (): void {
       let base64: string = this.result?.toString();
 
-      let separatedElement: string[] = splitToLength(base64, 5000);
+      let separatedElement: string[] = splitToLength(base64, 20 * 2 ** 10);
       console.log("Total parts:", separatedElement.length);
 
       let total: number = 0;
@@ -537,9 +546,11 @@ async function sendPhoto(): Promise<any> {
       }
 
       socket.emit("image_send_end", currentImg);
+
+      elements.photo_input.val("");
+      imageSettings.transition = false;
     };
 
     reader.readAsDataURL(file);
-    imageSettings.transition = false;
   }
 }

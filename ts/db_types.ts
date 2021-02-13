@@ -10,7 +10,7 @@ export namespace MessageTypes {
     timestamp: longInt;
     is_edited?: boolean;
     _id?: string;
-    object_type?: "text_message";
+    object_type?: object_type & "text_message";
   }
 
   export interface ConnectionLog {
@@ -18,7 +18,7 @@ export namespace MessageTypes {
     author: string;
     timestamp: longInt;
     _id?: string;
-    object_type?: "connection_log";
+    object_type?: object_type & "connection_log";
   }
 
   export interface Image {
@@ -26,10 +26,12 @@ export namespace MessageTypes {
     title: string;
     timestamp: longInt;
     _id?: string;
-    object_type?: "image";
+    object_type?: object_type & "image";
   }
 
   export interface Config {
     noConnectionLogs: boolean;
   }
+
+  export type object_type = "text_message" | "connection_log" | "image";
 }

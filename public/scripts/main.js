@@ -164,8 +164,8 @@ $(window).on({
     },
     contextmenu: function (event) {
         variables.contextMenu?.disable();
-        if (($(event.target).hasClass("message") ||
-            $(event.target).parents().hasClass("message")) &&
+        if (($(event.target).hasClass("message-wrap") ||
+            $(event.target).parents().hasClass("message-wrap")) &&
             !event.shiftKey) {
             event.preventDefault();
             variables.contextMenu = new ContextMenu(event);
@@ -320,7 +320,10 @@ function createConnectionLog(obj) {
         class: "username"
     });
     // if (currentUser !== obj.username)
-    container.append(content).appendTo(elements.chat_area);
+    container
+        .append(content)
+        .attr("object_type", obj.object_type)
+        .appendTo(elements.chat_area);
 }
 function createTextMsg(message) {
     let container = $("<div>", { class: "message-wrap" }), _message = $("<div>", { class: "message" });
@@ -349,14 +352,19 @@ function createTextMsg(message) {
     }
     if (message.author === variables.currentUser)
         container.addClass("sent");
-    container.attr("ms_id", message._id);
-    container.append(_message);
-    elements.chat_area.append(container);
+    container
+        .attr("ms_id", message._id)
+        .attr("object_type", message.object_type)
+        .append(_message)
+        .appendTo(elements.chat_area);
 }
 function createImgMsg(image) {
     let container = $("<div>", { class: "message-wrap" }), img = $("<img>", { class: "img-message" });
-    container.attr("ms_id", image._id);
-    container.append(img).appendTo(elements.chat_area);
+    container
+        .attr("ms_id", image._id)
+        .attr("object_type", "image")
+        .append(img)
+        .appendTo(elements.chat_area);
 }
 async function initImages(queue) {
     while (queue.length) {
@@ -367,7 +375,8 @@ async function initImages(queue) {
 function fillImg(img) {
     let base64 = imageSettings.parts.join("");
     const container = findMessage(img._id);
-    base64 = "data:image/jpeg;base64," + base64;
+    if (!base64.startsWith("data:image"))
+        base64 = "data:image/jpeg;base64," + base64;
     container.find(".img-message")[0].src = base64;
     imageSettings.reset();
 }
@@ -424,7 +433,7 @@ async function sendPhoto() {
         };
         reader.onload = function () {
             let base64 = this.result?.toString();
-            let separatedElement = splitToLength(base64, 5000);
+            let separatedElement = splitToLength(base64, 20 * 2 ** 10);
             console.log("Total parts:", separatedElement.length);
             let total = 0;
             for (let i of separatedElement)
@@ -438,8 +447,9 @@ async function sendPhoto() {
                 socket.emit("image_part", currentImg, part);
             }
             socket.emit("image_send_end", currentImg);
+            elements.photo_input.val("");
+            imageSettings.transition = false;
         };
         reader.readAsDataURL(file);
-        imageSettings.transition = false;
     }
 }

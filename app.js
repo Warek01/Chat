@@ -1,4 +1,23 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -11,6 +30,8 @@ const cors_1 = __importDefault(require("cors"));
 const path_1 = __importDefault(require("path"));
 const models_1 = require("./models");
 const fs_1 = require("fs");
+const sharp_1 = __importDefault(require("sharp"));
+const base64ToArrBuf = __importStar(require("base64-arraybuffer"));
 const app = express_1.default(), server = http_1.createServer(app), io = require("socket.io")(server);
 require("mongoose").Promise = global.Promise;
 const savedImgPath = path_1.default.join(__dirname, "saved_img");
@@ -105,6 +126,7 @@ io.on("connection", (socket) => {
         if (!imageProcessing) {
             imageProcessing = true;
             currentImg = image;
+            // if (!exists(path.join(savedImgPath, currentImg.title)))
             let document = (await new models_1.Image(image)
                 .save()
                 .catch(logError(socket, "Image Data")));
@@ -112,36 +134,39 @@ io.on("connection", (socket) => {
         }
     });
     socket.on("image_part", async (image, part) => {
-        if (image.title === currentImg.title &&
-            !fs_1.existsSync(path_1.default.join(savedImgPath, currentImg.title)))
+        if (image.title === currentImg.title)
             parts.push(part);
         else if (image.title !== currentImg.title)
             throw Error("Image name error");
     });
     socket.on("image_send_end", (image) => {
         if (imageProcessing && currentImg.title) {
-            const base64 = parts.join("").replace(/^data:image\/\w+;base64,/, "");
-            fs_1.writeFile(path_1.default.join(savedImgPath, currentImg.title), base64, { encoding: "base64" }, () => { });
-            // Sending back
-            io.sockets.emit("image_data", currentImg);
-            for (let part of parts)
-                io.sockets.emit("image_part", currentImg, part);
-            io.sockets.emit("image_send_end", currentImg);
-            imageProcessing = false;
-            currentImg = null;
-            parts = [];
+            const base64 = parts.join("").replace(/^data:image\/\w*;base64,/, "");
+            sharp_1.default(Buffer.from(base64ToArrBuf.decode(base64)))
+                .resize(1280, 720, { fit: "outside" })
+                .toFile(path_1.default.join(savedImgPath, image.title))
+                .catch(err => {
+                console.log("Error resizin file", err);
+            })
+                // Sending back
+                .then(() => {
+                fs_1.readFile(path_1.default.join(savedImgPath, image.title), { encoding: "base64" }, (err, data) => {
+                    if (err)
+                        throw err;
+                    parts = splitToLength(data, 20 * 2 ** 10);
+                    io.sockets.emit("image_data", currentImg);
+                    for (let part of parts)
+                        io.sockets.emit("image_part", currentImg, part);
+                    io.sockets.emit("image_send_end", currentImg);
+                    imageProcessing = false;
+                    currentImg = null;
+                    parts = [];
+                });
+            });
         }
     });
 });
 app.use(express_1.default.static(path_1.default.join(__dirname, "public")), cors_1.default());
-let imageProcessing = false;
-app.get("/getImage/:_id/:part", (req, res, next) => {
-    if (!imageProcessing) {
-        if (Number(req.params.part) === 999) {
-            imageProcessing = false;
-        }
-    }
-});
 // Initialization process (message history) sending to each new connected user
 app.get("/init", async (req, res, next) => {
     try {
