@@ -123,9 +123,9 @@ io.on("connection", (socket: Socket): void => {
         path.join(savedImgPath, image.title),
         { encoding: "base64" },
         (err: NodeJS.ErrnoException, data: string) => {
-          parts = splitToLength(data, 5000);
+          parts = splitToLength(data, 20 * 2 ** 10);
 
-          io.sockets.emit("image_data", image);
+          // io.sockets.emit("image_data", image);
           for (const part of parts) socket.emit("image_part", image, part);
           socket.emit("image_send_end", image);
 
@@ -137,17 +137,16 @@ io.on("connection", (socket: Socket): void => {
   });
 
   socket.on("image_data", async (image: t.Image) => {
-    console.log("Got data", image);
+    console.log("Got image", image);
     if (!imageProcessing) {
       imageProcessing = true;
       currentImg = image;
-
-      // if (!exists(path.join(savedImgPath, currentImg.title)))
 
       let document = (await new Image(image)
         .save()
         .catch(logError(socket, "Image Data"))) as Document;
       currentImg._id = document.toObject()._id;
+      io.sockets.emit("image_data", currentImg);
     }
   });
 
@@ -175,7 +174,6 @@ io.on("connection", (socket: Socket): void => {
               if (err) throw err;
               parts = splitToLength(data, 20 * 2 ** 10);
 
-              io.sockets.emit("image_data", currentImg);
               for (let part of parts)
                 io.sockets.emit("image_part", currentImg, part);
               io.sockets.emit("image_send_end", currentImg);

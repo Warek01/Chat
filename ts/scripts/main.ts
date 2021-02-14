@@ -60,16 +60,32 @@ elements.edit_user_btn.click(function (event): void {
   elementsActive.changeUserDropdown = !elementsActive.changeUserDropdown;
 });
 
-elements.advanced_tab_btn.click(function (event): void {
-  if (elements.advanced_tab.css("display") === "none") {
-    elements.advanced_tab.show();
-    elements.dropdown.css("height", 230);
-  } else {
-    elements.advanced_tab.hide();
-    elements.dropdown.css("height", 150);
+elements.settings_window_btn.click(function (event): void {
+  if (elementsActive.settingsWindow === false) {
+    elements.dropdown.hide();
+    elements.edit_user_btn.css("pointer-events", "none");
+    elements.settings_window.show().trigger("click");
+    elementsActive.settingsWindow = true;
   }
-  elementsActive.advancedTab = !elementsActive.advancedTab;
 });
+
+elements.settings_window
+  .find("#close-settings-window")
+  .click(function(event): void {
+    elements.settings_window.hide();
+    elementsActive.settingsWindow = false;
+    elements.edit_user_btn.css("pointer-events", "all");
+  })
+  .end()
+  .find("")
+  .click()
+  .end()
+  .find("")
+  .click()
+  .end()
+  .find("")
+  .click()
+  .end();
 
 elements.login_input.keypress(function (event): void {
   switch (event.key) {
@@ -145,7 +161,9 @@ socket
   })
   .on("image_part", async (image: t.Image, part: string) => {
     if (image.title === imageSettings.title) imageSettings.parts.push(part);
-    else throw Error("Image name error");
+    else
+      throw Error(`Image name error
+    current title: ${imageSettings.title}; remote title: ${image.title}`);
   })
   .on("image_send_end", (data: t.Image) => {
     if (imageSettings.transition) {
@@ -165,12 +183,12 @@ $(window).on({
     }
 
     if (
-      elementsActive.advancedTab &&
+      elementsActive.settingsWindow &&
       !elementsActive.userContextMenu &&
-      $(event.target).attr("id") !== elements.advanced_tab.attr("id") &&
-      $(event.target).attr("id") !== elements.advanced_tab_btn.attr("id")
+      $(event.target).attr("id") !== elements.settings_window.attr("id") &&
+      $(event.target).attr("id") !== elements.settings_window_btn.attr("id")
     )
-      elements.advanced_tab_btn.trigger("click");
+      elements.settings_window_btn.trigger("click");
 
     if (
       elementsActive.changeUserDropdown &&
@@ -312,11 +330,9 @@ async function init(): Promise<any> {
         break;
       case "image":
         queue.push(em as t.Image);
-        createImgMsg(em as t.Image);
         break;
     }
   }
-  console.log(res, queue);
   initImages(queue);
 }
 
@@ -437,6 +453,8 @@ function createImgMsg(image: t.Image): void {
   let container = $("<div>", { class: "message-wrap" }),
     img = $("<img>", { class: "img-message" });
 
+  if (image.author === variables.currentUser) container.addClass("sent");
+
   container
     .attr("ms_id", image._id)
     .attr("object_type", "image")
@@ -445,10 +463,13 @@ function createImgMsg(image: t.Image): void {
 }
 
 async function initImages(queue: Queue<t.Image>) {
-  while (queue.length) {
-    let img = queue.get();
+  queue.getEach((img: t.Image) => {
+    createImgMsg(img);
+    imageSettings.transition = true;
+    imageSettings.title = img.title;
+
     socket.emit("image_request", img);
-  }
+  });
 }
 
 function fillImg(img: t.Image): void {

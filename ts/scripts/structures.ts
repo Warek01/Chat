@@ -15,8 +15,7 @@ export class ContextMenu {
 
     this.target = $(event.target);
 
-    if (this.target.hasClass("message"))
-      this.selectedElement = $(event.target);
+    if (this.target.hasClass("message")) this.selectedElement = $(event.target);
     else this.selectedElement = $(event.target).parents(".message");
     this.contentElement = this.selectedElement.find(".content");
 
@@ -264,6 +263,17 @@ export class Queue<Type> {
   empty(): Queue<Type> {
     if (this.data.length > 0) this.data = [];
 
+    return this;
+  }
+
+  getEach(operation: (element: Type) => void): Queue<Type> {
+    while (this.length) operation(this.get());
+
+    return this;
+  }
+
+  forEach(operation: (element: Type) => void): Queue<Type> {
+    this.data.forEach(operation);
     return this;
   }
 
