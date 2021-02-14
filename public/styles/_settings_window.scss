@@ -6,18 +6,34 @@
   left: 7.5%;
   top: 9%;
   background-color: rgba($color: #fff, $alpha: 0.925);
-  border-radius: 20px;
+  border-radius: 10px;
   box-shadow: 4px 4px 4px rgba(#bababa, 0.35), 4px 4px 12px rgba(#bababa, 0.35);
+
+  .area {
+    position: relative;
+    height: 85%;
+  }
+
+  .switch-wrapper {
+    display: flex;
+    justify-content: center;
+  }
 
   button {
     position: relative;
     display: block;
     width: 250px;
     height: 40px;
-    margin-top: 10px;
+    margin-left: auto;
+    margin-right: auto;
+
+    &:not(:last-child) {
+      margin-top: 20px;
+    }
 
     &:hover {
-      box-shadow: 4px 4px 6px rgba(#8f8f8f, 0.35), 4px 4px 15px rgba(#bababa, 0.35);
+      box-shadow: 4px 4px 6px rgba(#8f8f8f, 0.35),
+        4px 4px 15px rgba(#bababa, 0.35);
       top: -4px;
       left: -4px;
     }
@@ -25,6 +41,12 @@
     &.switch {
       border: none;
       background-color: #2ecc71;
+      display: inline-block;
+      margin: 0;
+
+      &:not(:first-child) {
+        margin-left: 20px;
+      }
 
       &.off {
         background-color: #e74c3c;
@@ -39,6 +61,6 @@
   .margin-vertical {
     position: relative;
     display: block;
-    height: 25px;
+    margin-top: 50px;
   }
 }

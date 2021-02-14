@@ -66,5 +66,14 @@ exports.Image = mongoose_1.model("Image File", new mongoose_1.Schema({
     }
 }), "image_files");
 exports.Config = mongoose_1.model("Config", new mongoose_1.Schema({
-    noConnectionLogs: Boolean
+    noConnectionLogs: {
+        type: Boolean,
+        required: false,
+        default: false
+    },
+    noNotifications: {
+        type: Boolean,
+        required: false,
+        default: false
+    }
 }), "config");

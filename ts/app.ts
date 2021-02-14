@@ -1,23 +1,32 @@
 import express, { Application, Request, Response, NextFunction } from "express";
+import { Http2Server } from "http2";
 import { connect, connection, Document } from "mongoose";
+require("mongoose").Promise = global.Promise;
 import { createServer } from "http";
 import chalk from "chalk";
 import cors from "cors";
 import path from "path";
-import { TextMessage, ConnectionLog, Image } from "./models";
+import { TextMessage, ConnectionLog, Image, Config } from "./models";
 import { Socket, Server } from "socket.io";
 import { readFile, readdir, unlink, existsSync as exists } from "fs";
 import { MessageTypes as t } from "./db_types";
 import sharp from "sharp";
 import * as base64ToArrBuf from "base64-arraybuffer";
+import optimist from "optimist";
 
 const app: Application = express(),
-  server = createServer(app),
+  server: Http2Server = createServer(app),
   io: Server = require("socket.io")(server);
 
-require("mongoose").Promise = global.Promise;
+const IMG_PATH: string = path.join(__dirname, "saved_img");
+const argv = optimist
+  .usage("$0 -p [num] | -port [num]")
+  .demand(["port"])
+  .alias("p", "port")
+  .describe("port", "Port where to run app")
+  .default("p", 8000).argv;
 
-const savedImgPath: string = path.join(__dirname, "saved_img");
+let CONFIG: t.Config | null = null;
 
 // Open mongodb connection
 connect("mongodb://localhost:27017/Chat", {
@@ -25,6 +34,19 @@ connect("mongodb://localhost:27017/Chat", {
   useNewUrlParser: true,
   useUnifiedTopology: true,
   numberOfRetries: 2
+});
+
+Config.exists({}, async (err: Error, exists: boolean) => {
+  if (err) throw err;
+
+  if (exists) {
+    Config.findOne({}).then((obj: Document) => {
+      CONFIG = obj.toObject();
+    });
+  } else {
+    const config = await (await new Config({}).save()).toObject();
+    CONFIG = config;
+  }
 });
 
 connection
@@ -39,6 +61,7 @@ connection
   });
 
 // Socket.io (websocket) connection
+io._connectTimeout = 10_000;
 io.on("connection", (socket: Socket): void => {
   console.log(chalk.hex("#95a5a6")("Client connected!"));
 
@@ -59,15 +82,16 @@ io.on("connection", (socket: Socket): void => {
 
   socket.on("connect_log", async (obj: t.ConnectionLog) => {
     await new ConnectionLog(obj).save().catch(logError(socket, "Connect Log"));
-    socket.broadcast.emit("connect_log", obj);
+
+    if (!CONFIG.noConnectionLogs) socket.broadcast.emit("connect_log", obj);
   });
 
   socket.on("clear_history", async () => {
-    readdir(savedImgPath, (err: Error, files: string[]) => {
+    readdir(IMG_PATH, (err: Error, files: string[]) => {
       if (err) throw err;
 
       for (const fileName of files)
-        unlink(path.join(savedImgPath, fileName), err => {
+        unlink(path.join(IMG_PATH, fileName), err => {
           if (err) throw err;
         });
     });
@@ -115,12 +139,12 @@ io.on("connection", (socket: Socket): void => {
     currentImg: t.Image;
 
   socket.on("image_request", async (image: t.Image) => {
-    if (exists(path.join(savedImgPath, image.title))) {
+    if (exists(path.join(IMG_PATH, image.title))) {
       imageProcessing = true;
       currentImg = image;
 
       readFile(
-        path.join(savedImgPath, image.title),
+        path.join(IMG_PATH, image.title),
         { encoding: "base64" },
         (err: NodeJS.ErrnoException, data: string) => {
           parts = splitToLength(data, 20 * 2 ** 10);
@@ -161,14 +185,14 @@ io.on("connection", (socket: Socket): void => {
 
       sharp(Buffer.from(base64ToArrBuf.decode(base64)))
         .resize(1280, 720, { fit: "outside" })
-        .toFile(path.join(savedImgPath, image.title))
+        .toFile(path.join(IMG_PATH, image.title))
         .catch(err => {
           console.log("Error resizin file", err);
         })
         // Sending back
         .then(() => {
           readFile(
-            path.join(savedImgPath, image.title),
+            path.join(IMG_PATH, image.title),
             { encoding: "base64" },
             (err: Error, data: string) => {
               if (err) throw err;
@@ -205,9 +229,33 @@ app.get("/init", async (req: Request, res: Response, next: NextFunction) => {
 
     res.json(sorted);
   } catch {
-    return res.sendStatus(500);
+    res.sendStatus(500);
   }
 });
+
+app
+  .route("/config")
+  .get((req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(CONFIG);
+    } catch {
+      res.sendStatus(500);
+    }
+  })
+  .put(async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const query = req.query;
+
+      for (let key of Object.keys(query))
+        if (!(key in CONFIG)) return res.end("Invalid key " + key);
+
+      const newConfig: Document = await Config.updateOne({}, query);
+      io.sockets.emit("config_update", newConfig.toObject());
+    } catch (err) {
+      res.sendStatus(500);
+      throw err;
+    }
+  });
 
 // Clear db history
 app.get("/clear", (req: Request, res: Response, next: NextFunction) => {
@@ -219,7 +267,9 @@ app.get("/clear", (req: Request, res: Response, next: NextFunction) => {
   res.sendStatus(200);
 });
 
-server.listen(5555);
+server.listen(argv.port, () => {
+  console.log(`App started on port ${argv.port}`);
+});
 
 function logError(socket: Socket | null = null, message: string | null = null) {
   return function (err: Error): void {

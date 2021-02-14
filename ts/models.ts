@@ -81,7 +81,16 @@ export const Image = model(
 export const Config = model(
   "Config",
   new Schema({
-    noConnectionLogs: Boolean
+    noConnectionLogs: {
+      type: Boolean,
+      required: false,
+      default: false
+    },
+    noNotifications: {
+      type: Boolean,
+      required: false,
+      default: false
+    }
   }),
   "config"
 );

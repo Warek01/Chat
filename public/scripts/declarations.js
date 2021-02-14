@@ -6,16 +6,20 @@ export const elements = {
     chat_area: $("#chat-area"),
     dropdown: $("#dropdown"),
     user_field: $("#user"),
-    edit_user_btn: $("#edit-user"),
-    send_photo_btn: $("#photoBtn"),
-    send_text_btn: $("#sendBtn"),
-    clear_history_btn: $(".clear-history-button"),
-    change_username_btn: $("#change-username"),
-    clear_logs_btn: $(".clear-all-logs-button"),
-    logout_btn: $("#change-username"),
-    settings_window_btn: $("#toggle-settings-window"),
     settings_window: $("#settings-window"),
-    photo_input: $("#photoInput")
+    photo_input: $("#photoInput"),
+    buttons: {
+        edit_user: $("#edit-user"),
+        send_photo: $("#photoBtn"),
+        send_text: $("#sendBtn"),
+        clear_history: $("#clear-history"),
+        change_username: $("#change-username"),
+        clear_logs: $("#clear-connection-logs"),
+        logout: $("#change-username"),
+        settings_window: $("#toggle-settings-window"),
+        connection_logs_switch: $("#switch-connection-logs"),
+        close_settings_menu: $("#close-settings-window")
+    }
 };
 export let variables = {
     currentUser: null,

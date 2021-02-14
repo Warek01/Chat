@@ -21,6 +21,7 @@
     "@types/mongoose": "^5.10.1",
     "@types/multiparty": "0.0.32",
     "@types/node": "^14.14.10",
+    "@types/optimist": "0.0.29",
     "@types/sharp": "^0.27.1",
     "@types/socket.io": "^2.1.11",
     "base64-arraybuffer": "^0.2.0",
@@ -30,6 +31,7 @@
     "express-fileupload": "^1.2.1",
     "mongoose": "^5.10.19",
     "mongoose-int32": "^0.4.1",
+    "optimist": "^0.6.1",
     "sharp": "^0.27.1",
     "socket.io": "^3.0.3"
   }

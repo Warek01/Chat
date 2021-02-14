@@ -56,8 +56,8 @@ header #dropdown button:focus { border: 1px solid #333333; }
 #login-wrapper .login button { margin: 30px 141px; }
 
 #chat-wrapper { position: absolute; display: flex; z-index: -1; justify-content: center; align-items: center; width: 100%; height: calc(100% - 60px); top: 60px; /* Width */ /* Track */ /* Handle */ }
-#chat-wrapper .chat-window { position: relative; display: block; height: 80vh; width: 70vw; border-radius: 10px; }
-@media screen and (max-width: 1501px) { #chat-wrapper .chat-window { width: 90vw; } }
+#chat-wrapper .chat-window { position: relative; display: block; height: 85vh; width: 80vw; border-radius: 10px; }
+@media screen and (max-width: 1501px) { #chat-wrapper .chat-window { width: 90vw; height: 92.5%; } }
 #chat-wrapper #chat-area { position: relative; display: block; width: 95%; height: 84%; margin: 1% auto 5px auto; overflow-y: auto; }
 #chat-wrapper #chat-area * { transition: all .3s ease; }
 #chat-wrapper ::-webkit-scrollbar { width: 8px; }
@@ -96,10 +96,14 @@ header #dropdown button:focus { border: 1px solid #333333; }
 
 .img-message { width: 300px; }
 
-#settings-window { position: absolute; display: none; width: 85%; height: 85%; left: 7.5%; top: 9%; background-color: rgba(255, 255, 255, 0.925); border-radius: 20px; box-shadow: 4px 4px 4px rgba(186, 186, 186, 0.35), 4px 4px 12px rgba(186, 186, 186, 0.35); }
-#settings-window button { position: relative; display: block; width: 250px; height: 40px; margin-top: 10px; }
+#settings-window { position: absolute; display: none; width: 85%; height: 85%; left: 7.5%; top: 9%; background-color: rgba(255, 255, 255, 0.925); border-radius: 10px; box-shadow: 4px 4px 4px rgba(186, 186, 186, 0.35), 4px 4px 12px rgba(186, 186, 186, 0.35); }
+#settings-window .area { position: relative; height: 85%; }
+#settings-window .switch-wrapper { display: flex; justify-content: center; }
+#settings-window button { position: relative; display: block; width: 250px; height: 40px; margin-left: auto; margin-right: auto; }
+#settings-window button:not(:last-child) { margin-top: 20px; }
 #settings-window button:hover { box-shadow: 4px 4px 6px rgba(143, 143, 143, 0.35), 4px 4px 15px rgba(186, 186, 186, 0.35); top: -4px; left: -4px; }
-#settings-window button.switch { border: none; background-color: #2ecc71; }
+#settings-window button.switch { border: none; background-color: #2ecc71; display: inline-block; margin: 0; }
+#settings-window button.switch:not(:first-child) { margin-left: 20px; }
 #settings-window button.switch.off { background-color: #e74c3c; }
 #settings-window #close-settings-window { bottom: 0; }
-#settings-window .margin-vertical { position: relative; display: block; height: 25px; }
+#settings-window .margin-vertical { position: relative; display: block; margin-top: 50px; }

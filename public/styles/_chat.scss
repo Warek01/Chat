@@ -11,12 +11,13 @@
   .chat-window {
     position: relative;
     display: block;
-    height: 80vh;
-    width: 70vw;
+    height: 85vh;
+    width: 80vw;
     border-radius: 10px;
 
     @media screen and (max-width: 1501px) {
       width: 90vw;
+      height: 92.5%;
     }
   }
 

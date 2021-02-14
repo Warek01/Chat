@@ -24,6 +24,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const mongoose_1 = require("mongoose");
+require("mongoose").Promise = global.Promise;
 const http_1 = require("http");
 const chalk_1 = __importDefault(require("chalk"));
 const cors_1 = __importDefault(require("cors"));
@@ -32,15 +33,35 @@ const models_1 = require("./models");
 const fs_1 = require("fs");
 const sharp_1 = __importDefault(require("sharp"));
 const base64ToArrBuf = __importStar(require("base64-arraybuffer"));
+const optimist_1 = __importDefault(require("optimist"));
 const app = express_1.default(), server = http_1.createServer(app), io = require("socket.io")(server);
-require("mongoose").Promise = global.Promise;
-const savedImgPath = path_1.default.join(__dirname, "saved_img");
+const IMG_PATH = path_1.default.join(__dirname, "saved_img");
+const argv = optimist_1.default
+    .usage("$0 -p [num] | -port [num]")
+    .demand(["port"])
+    .alias("p", "port")
+    .describe("port", "Port where to run app")
+    .default("p", 8000).argv;
+let CONFIG = null;
 // Open mongodb connection
 mongoose_1.connect("mongodb://localhost:27017/Chat", {
     useFindAndModify: true,
     useNewUrlParser: true,
     useUnifiedTopology: true,
     numberOfRetries: 2
+});
+models_1.Config.exists({}, async (err, exists) => {
+    if (err)
+        throw err;
+    if (exists) {
+        models_1.Config.findOne({}).then((obj) => {
+            CONFIG = obj.toObject();
+        });
+    }
+    else {
+        const config = await (await new models_1.Config({}).save()).toObject();
+        CONFIG = config;
+    }
 });
 mongoose_1.connection
     .on("open", () => {
@@ -53,6 +74,7 @@ mongoose_1.connection
     console.log(chalk_1.default.hex("#e84118")("Database Error: "), err);
 });
 // Socket.io (websocket) connection
+io._connectTimeout = 10000;
 io.on("connection", (socket) => {
     console.log(chalk_1.default.hex("#95a5a6")("Client connected!"));
     socket.on("error", err => {
@@ -68,14 +90,15 @@ io.on("connection", (socket) => {
     });
     socket.on("connect_log", async (obj) => {
         await new models_1.ConnectionLog(obj).save().catch(logError(socket, "Connect Log"));
-        socket.broadcast.emit("connect_log", obj);
+        if (!CONFIG.noConnectionLogs)
+            socket.broadcast.emit("connect_log", obj);
     });
     socket.on("clear_history", async () => {
-        fs_1.readdir(savedImgPath, (err, files) => {
+        fs_1.readdir(IMG_PATH, (err, files) => {
             if (err)
                 throw err;
             for (const fileName of files)
-                fs_1.unlink(path_1.default.join(savedImgPath, fileName), err => {
+                fs_1.unlink(path_1.default.join(IMG_PATH, fileName), err => {
                     if (err)
                         throw err;
                 });
@@ -107,10 +130,10 @@ io.on("connection", (socket) => {
     // Images implementation
     let imageProcessing = false, parts = [], currentImg;
     socket.on("image_request", async (image) => {
-        if (fs_1.existsSync(path_1.default.join(savedImgPath, image.title))) {
+        if (fs_1.existsSync(path_1.default.join(IMG_PATH, image.title))) {
             imageProcessing = true;
             currentImg = image;
-            fs_1.readFile(path_1.default.join(savedImgPath, image.title), { encoding: "base64" }, (err, data) => {
+            fs_1.readFile(path_1.default.join(IMG_PATH, image.title), { encoding: "base64" }, (err, data) => {
                 parts = splitToLength(data, 20 * 2 ** 10);
                 // io.sockets.emit("image_data", image);
                 for (const part of parts)
@@ -144,13 +167,13 @@ io.on("connection", (socket) => {
             const base64 = parts.join("").replace(/^data:image\/\w*;base64,/, "");
             sharp_1.default(Buffer.from(base64ToArrBuf.decode(base64)))
                 .resize(1280, 720, { fit: "outside" })
-                .toFile(path_1.default.join(savedImgPath, image.title))
+                .toFile(path_1.default.join(IMG_PATH, image.title))
                 .catch(err => {
                 console.log("Error resizin file", err);
             })
                 // Sending back
                 .then(() => {
-                fs_1.readFile(path_1.default.join(savedImgPath, image.title), { encoding: "base64" }, (err, data) => {
+                fs_1.readFile(path_1.default.join(IMG_PATH, image.title), { encoding: "base64" }, (err, data) => {
                     if (err)
                         throw err;
                     parts = splitToLength(data, 20 * 2 ** 10);
@@ -174,7 +197,31 @@ app.get("/init", async (req, res, next) => {
         res.json(sorted);
     }
     catch {
-        return res.sendStatus(500);
+        res.sendStatus(500);
+    }
+});
+app
+    .route("/config")
+    .get((req, res, next) => {
+    try {
+        res.json(CONFIG);
+    }
+    catch {
+        res.sendStatus(500);
+    }
+})
+    .put(async (req, res, next) => {
+    try {
+        const query = req.query;
+        for (let key of Object.keys(query))
+            if (!(key in CONFIG))
+                return res.end("Invalid key " + key);
+        const newConfig = await models_1.Config.updateOne({}, query);
+        io.sockets.emit("config_update", newConfig.toObject());
+    }
+    catch (err) {
+        res.sendStatus(500);
+        throw err;
     }
 });
 // Clear db history
@@ -187,7 +234,9 @@ app.get("/clear", (req, res, next) => {
     }
     res.sendStatus(200);
 });
-server.listen(5555);
+server.listen(argv.port, () => {
+    console.log(`App started on port ${argv.port}`);
+});
 function logError(socket = null, message = null) {
     return function (err) {
         console.log(message ? chalk_1.default.hex("#f0932b")(message + ": ") : "", chalk_1.default.hex("#e84118")(err));

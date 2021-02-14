@@ -31,6 +31,7 @@ export namespace MessageTypes {
 
   export interface Config {
     noConnectionLogs: boolean;
+    noNotifications: boolean;
   }
 
   export type object_type = "text_message" | "connection_log" | "image";

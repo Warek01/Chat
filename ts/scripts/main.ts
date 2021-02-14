@@ -1,7 +1,7 @@
 import { MessageTypes as t } from "../db_types";
 import { ContextMenu, Queue } from "./structures.js";
 import {
-  elements,
+  elements as elem,
   elementsActive,
   variables,
   imageSettings,
@@ -14,9 +14,9 @@ $(document).ready(function (event): void {
       (document.cookie.match(/(?<=username=)\w+/) || [""])[0]
     );
 
-    elements.user_field.text(variables.currentUser);
+    elem.user_field.text(variables.currentUser);
     init();
-    elements.edit_user_btn.css("pointer-events", "all");
+    elem.buttons.edit_user.css("pointer-events", "all");
 
     socket.emit("connect_log", {
       type: "connect",
@@ -25,33 +25,33 @@ $(document).ready(function (event): void {
     } as t.ConnectionLog);
   } else {
     $("#login").click(login);
-    elements.login_form.css("display", "flex");
-    elements.chat_form.hide();
+    elem.login_form.css("display", "flex");
+    elem.chat_form.hide();
+    validatePreviousUserBtn();
   }
-  validatePreviousUserBtn();
 });
 
-elements.photo_input.change(sendPhoto);
-elements.send_text_btn.click(sendMessage);
-elements.change_username_btn.click(logout);
+elem.photo_input.change(sendPhoto);
+elem.buttons.send_text.click(sendMessage);
+elem.buttons.change_username.click(logout);
 
-elements.clear_history_btn.click(e => {
+elem.buttons.clear_history.click(e => {
   clearMsgHistory(true);
 });
 
-elements.clear_logs_btn.click(e => {
+elem.buttons.clear_logs.click(e => {
   clearAllLogs(true);
 });
 
-elements.edit_user_btn.click(function (event): void {
+elem.buttons.edit_user.click(function (event): void {
   if (!elementsActive.changeUserDropdown) {
-    elements.dropdown.show();
+    elem.dropdown.show();
     $("body").children().not("header").css({
       "pointer-events": "none",
       filter: "blur(2px)"
     });
   } else {
-    elements.dropdown.hide();
+    elem.dropdown.hide();
     $("body").children().not("header").css({
       "pointer-events": "all",
       filter: "blur(0)"
@@ -60,34 +60,30 @@ elements.edit_user_btn.click(function (event): void {
   elementsActive.changeUserDropdown = !elementsActive.changeUserDropdown;
 });
 
-elements.settings_window_btn.click(function (event): void {
+elem.buttons.settings_window.click(function (event): void {
   if (elementsActive.settingsWindow === false) {
-    elements.dropdown.hide();
-    elements.edit_user_btn.css("pointer-events", "none");
-    elements.settings_window.show().trigger("click");
+    elem.dropdown.hide();
+    elem.settings_window.show().trigger("click");
+    elem.buttons.edit_user.css("pointer-events", "none");
     elementsActive.settingsWindow = true;
   }
 });
 
-elements.settings_window
-  .find("#close-settings-window")
-  .click(function(event): void {
-    elements.settings_window.hide();
-    elementsActive.settingsWindow = false;
-    elements.edit_user_btn.css("pointer-events", "all");
-  })
-  .end()
-  .find("")
-  .click()
-  .end()
-  .find("")
-  .click()
-  .end()
-  .find("")
-  .click()
-  .end();
+elem.buttons.close_settings_menu.click(function (event): void {
+  elem.settings_window.hide();
+  elementsActive.settingsWindow = false;
+  elem.buttons.edit_user.css("pointer-events", "all");
+});
 
-elements.login_input.keypress(function (event): void {
+elem.buttons.clear_history.click(function(event): void {
+  socket.emit("clear_history");
+});
+
+elem.buttons.clear_logs.click(function(event): void{
+  socket.emit("clear_logs");
+});
+
+elem.login_input.keypress(function (event): void {
   switch (event.key) {
     case "Enter":
       if ($(this).val()!.toString().trim() !== "") login();
@@ -95,10 +91,9 @@ elements.login_input.keypress(function (event): void {
   }
 });
 
-elements.chat_input.keypress(function (event): void {
+elem.chat_input.keypress(function (event): void {
   if (event.key === "Enter")
-    if (event.shiftKey)
-      elements.chat_input.val(elements.chat_input.val() + "\n");
+    if (event.shiftKey) elem.chat_input.val(elem.chat_input.val() + "\n");
     // Nu lucreaza \n la input
     else $("#sendBtn").trigger("click");
 });
@@ -185,10 +180,10 @@ $(window).on({
     if (
       elementsActive.settingsWindow &&
       !elementsActive.userContextMenu &&
-      $(event.target).attr("id") !== elements.settings_window.attr("id") &&
-      $(event.target).attr("id") !== elements.settings_window_btn.attr("id")
+      $(event.target).attr("id") !== elem.settings_window.attr("id") &&
+      $(event.target).attr("id") !== elem.buttons.settings_window.attr("id")
     )
-      elements.settings_window_btn.trigger("click");
+      elem.buttons.settings_window.trigger("click");
 
     if (
       elementsActive.changeUserDropdown &&
@@ -198,7 +193,7 @@ $(window).on({
       $(event.target).attr("id") !== "edit-user" &&
       $(event.target).parent().attr("id") !== "edit-user"
     )
-      elements.edit_user_btn.trigger("click");
+      elem.buttons.edit_user.trigger("click");
   },
 
   contextmenu: function (event): void {
@@ -222,7 +217,7 @@ $(window).on({
   }
 });
 
-elements.send_photo_btn.click(function (event: JQuery.ClickEvent): void {
+elem.buttons.send_photo.click(function (event: JQuery.ClickEvent): void {
   const imgInput = $("#photoInput");
 
   imgInput.trigger("click");
@@ -244,17 +239,17 @@ function setCookie(key: string, value: string): string {
 }
 
 function login(): void {
-  if ((elements.login_input.val() as string).trim() !== "") {
-    variables.currentUser = elements.login_input.val() as string;
-    elements.user_field.text(variables.currentUser);
+  if ((elem.login_input.val() as string).trim() !== "") {
+    variables.currentUser = elem.login_input.val() as string;
+    elem.user_field.text(variables.currentUser);
     setCookie("username", variables.currentUser);
     init();
 
-    elements.login_input.val("");
+    elem.login_input.val("");
 
-    elements.login_form.hide();
-    elements.chat_form.show();
-    elements.edit_user_btn.css("pointer-events", "all");
+    elem.login_form.hide();
+    elem.chat_form.show();
+    elem.buttons.edit_user.css("pointer-events", "all");
     $("#login").off("click", login);
   }
   for (let message of $(".message"))
@@ -282,12 +277,12 @@ function logout(): void {
   removeCookie("username");
   validatePreviousUserBtn();
 
-  elements.chat_form.hide();
-  elements.login_form.css("display", "flex");
+  elem.chat_form.hide();
+  elem.login_form.css("display", "flex");
   $("#login").click(login);
 
-  elements.edit_user_btn.css("pointer-events", "none");
-  elements.dropdown.hide();
+  elem.buttons.edit_user.css("pointer-events", "none");
+  elem.dropdown.hide();
   $("body").children().not("header").css({
     "pointer-events": "all",
     filter: "blur(0)"
@@ -300,14 +295,14 @@ function logout(): void {
 }
 
 function sendMessage(): void {
-  if (elements.chat_input.val()!.toString().trim() !== "") {
+  if (elem.chat_input.val()!.toString().trim() !== "") {
     const body: t.TextMessage = {
-      content: elements.chat_input.val() as string,
+      content: elem.chat_input.val() as string,
       author: variables.currentUser as string,
       timestamp: Date.now() as number
     };
 
-    elements.chat_input.val("");
+    elem.chat_input.val("");
 
     socket.emit("text_message", body);
   }
@@ -371,7 +366,7 @@ function validatePreviousUserBtn(): void {
       .css("display", "block")
       .text(variables.previousUser)
       .click(function (event) {
-        elements.login_input.val(variables.previousUser as string);
+        elem.login_input.val(variables.previousUser as string);
         login();
       });
   } else $(".last-user").hide();
@@ -405,7 +400,7 @@ function createConnectionLog(obj: t.ConnectionLog): void {
   container
     .append(content)
     .attr("object_type", obj.object_type)
-    .appendTo(elements.chat_area);
+    .appendTo(elem.chat_area);
 }
 
 function createTextMsg(message: t.TextMessage): void {
@@ -446,7 +441,7 @@ function createTextMsg(message: t.TextMessage): void {
     .attr("ms_id", message._id as string)
     .attr("object_type", message.object_type)
     .append(_message)
-    .appendTo(elements.chat_area);
+    .appendTo(elem.chat_area);
 }
 
 function createImgMsg(image: t.Image): void {
@@ -459,7 +454,7 @@ function createImgMsg(image: t.Image): void {
     .attr("ms_id", image._id)
     .attr("object_type", "image")
     .append(img)
-    .appendTo(elements.chat_area);
+    .appendTo(elem.chat_area);
 }
 
 async function initImages(queue: Queue<t.Image>) {
@@ -492,7 +487,7 @@ function clearMsgHistory(clearFromDb: boolean = true): void {
     socket.emit("clear_history");
   }
 
-  elements.chat_area.children().remove();
+  elem.chat_area.children().remove();
 }
 
 function removeEditMarks(): void {
@@ -568,7 +563,7 @@ async function sendPhoto(): Promise<any> {
 
       socket.emit("image_send_end", currentImg);
 
-      elements.photo_input.val("");
+      elem.photo_input.val("");
       imageSettings.transition = false;
     };
 
