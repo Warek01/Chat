@@ -31,17 +31,9 @@
       <button id="change-username">
         Log out
       </button>
-      <button id="toggle-advanced-tab">
+      <button id="toggle-settings-window">
         Advanced
       </button>
-      <div id="advanced-tab" style="display: none;">
-        <button class="clear-history-button">
-          Clear history
-        </button>
-        <button class="clear-all-logs-button">
-          Clear logs
-        </button>
-      </div>
     </div>
   </header>
 
@@ -79,6 +71,24 @@
         </button>
       </div>
     </div>
+  </div>
+
+  <div id="settings-window">
+    <div class="area">
+      <button id="clear-history">
+        Clear chat history
+      </button>
+      <button id="clear-connection-logs">
+        Clear connection logs
+      </button>
+      <div class="margin-vertical"></div>
+      <button class="switch" id="switch-connection-logs">
+        Connection logs
+      </button>
+    </div>
+    <button id="close-settings-window">
+      Close
+    </button>
   </div>
   <input type="file" accept="image/*" id="photoInput"></input>
 

@@ -1,0 +1,44 @@
+#settings-window {
+  position: absolute;
+  display: none;
+  width: 85%;
+  height: 85%;
+  left: 7.5%;
+  top: 9%;
+  background-color: rgba($color: #fff, $alpha: 0.925);
+  border-radius: 20px;
+  box-shadow: 4px 4px 4px rgba(#bababa, 0.35), 4px 4px 12px rgba(#bababa, 0.35);
+
+  button {
+    position: relative;
+    display: block;
+    width: 250px;
+    height: 40px;
+    margin-top: 10px;
+
+    &:hover {
+      box-shadow: 4px 4px 6px rgba(#8f8f8f, 0.35), 4px 4px 15px rgba(#bababa, 0.35);
+      top: -4px;
+      left: -4px;
+    }
+
+    &.switch {
+      border: none;
+      background-color: #2ecc71;
+
+      &.off {
+        background-color: #e74c3c;
+      }
+    }
+  }
+
+  #close-settings-window {
+    bottom: 0;
+  }
+
+  .margin-vertical {
+    position: relative;
+    display: block;
+    height: 25px;
+  }
+}

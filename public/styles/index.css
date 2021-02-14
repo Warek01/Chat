@@ -59,6 +59,7 @@ header #dropdown button:focus { border: 1px solid #333333; }
 #chat-wrapper .chat-window { position: relative; display: block; height: 80vh; width: 70vw; border-radius: 10px; }
 @media screen and (max-width: 1501px) { #chat-wrapper .chat-window { width: 90vw; } }
 #chat-wrapper #chat-area { position: relative; display: block; width: 95%; height: 84%; margin: 1% auto 5px auto; overflow-y: auto; }
+#chat-wrapper #chat-area * { transition: all .3s ease; }
 #chat-wrapper ::-webkit-scrollbar { width: 8px; }
 #chat-wrapper ::-webkit-scrollbar-track { background: #f1f1f1; box-shadow: inset 0 0 4px #24292e; border-radius: 6px; }
 #chat-wrapper ::-webkit-scrollbar-thumb { background-color: #5c6976; border-radius: 6px; }
@@ -93,4 +94,12 @@ header #dropdown button:focus { border: 1px solid #333333; }
 .connection { position: relative; display: flex; width: 100%; height: 15px; margin-top: 5px; justify-content: center; align-items: center; }
 .connection .username { display: inline-block; text-align: center; color: #fff; font-size: 12px; }
 
-.img-message { width: 200px; }
+.img-message { width: 300px; }
+
+#settings-window { position: absolute; display: none; width: 85%; height: 85%; left: 7.5%; top: 9%; background-color: rgba(255, 255, 255, 0.925); border-radius: 20px; box-shadow: 4px 4px 4px rgba(186, 186, 186, 0.35), 4px 4px 12px rgba(186, 186, 186, 0.35); }
+#settings-window button { position: relative; display: block; width: 250px; height: 40px; margin-top: 10px; }
+#settings-window button:hover { box-shadow: 4px 4px 6px rgba(143, 143, 143, 0.35), 4px 4px 15px rgba(186, 186, 186, 0.35); top: -4px; left: -4px; }
+#settings-window button.switch { border: none; background-color: #2ecc71; }
+#settings-window button.switch.off { background-color: #e74c3c; }
+#settings-window #close-settings-window { bottom: 0; }
+#settings-window .margin-vertical { position: relative; display: block; height: 25px; }

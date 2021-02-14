@@ -27,6 +27,10 @@
     height: 84%;
     margin: 1% auto 5px auto;
     overflow-y: auto;
+
+    * {
+      transition: all .3s ease;
+    }
   }
 
   /* Width */
@@ -243,6 +247,7 @@
   }
 }
 
+// Image messages
 .img-message {
-  width: 200px;
+  width: 300px;
 }

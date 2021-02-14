@@ -45,17 +45,31 @@ elements.edit_user_btn.click(function (event) {
     }
     elementsActive.changeUserDropdown = !elementsActive.changeUserDropdown;
 });
-elements.advanced_tab_btn.click(function (event) {
-    if (elements.advanced_tab.css("display") === "none") {
-        elements.advanced_tab.show();
-        elements.dropdown.css("height", 230);
+elements.settings_window_btn.click(function (event) {
+    if (elementsActive.settingsWindow === false) {
+        elements.dropdown.hide();
+        elements.edit_user_btn.css("pointer-events", "none");
+        elements.settings_window.show().trigger("click");
+        elementsActive.settingsWindow = true;
     }
-    else {
-        elements.advanced_tab.hide();
-        elements.dropdown.css("height", 150);
-    }
-    elementsActive.advancedTab = !elementsActive.advancedTab;
 });
+elements.settings_window
+    .find("#close-settings-window")
+    .click(function (event) {
+    elements.settings_window.hide();
+    elementsActive.settingsWindow = false;
+    elements.edit_user_btn.css("pointer-events", "all");
+})
+    .end()
+    .find("")
+    .click()
+    .end()
+    .find("")
+    .click()
+    .end()
+    .find("")
+    .click()
+    .end();
 elements.login_input.keypress(function (event) {
     switch (event.key) {
         case "Enter":
@@ -134,7 +148,8 @@ socket
     if (image.title === imageSettings.title)
         imageSettings.parts.push(part);
     else
-        throw Error("Image name error");
+        throw Error(`Image name error
+    current title: ${imageSettings.title}; remote title: ${image.title}`);
 })
     .on("image_send_end", (data) => {
     if (imageSettings.transition) {
@@ -149,11 +164,11 @@ $(window).on({
             variables.contextMenu?.disable();
             return;
         }
-        if (elementsActive.advancedTab &&
+        if (elementsActive.settingsWindow &&
             !elementsActive.userContextMenu &&
-            $(event.target).attr("id") !== elements.advanced_tab.attr("id") &&
-            $(event.target).attr("id") !== elements.advanced_tab_btn.attr("id"))
-            elements.advanced_tab_btn.trigger("click");
+            $(event.target).attr("id") !== elements.settings_window.attr("id") &&
+            $(event.target).attr("id") !== elements.settings_window_btn.attr("id"))
+            elements.settings_window_btn.trigger("click");
         if (elementsActive.changeUserDropdown &&
             !elementsActive.userContextMenu &&
             $(event.target).attr("id") !== "dropdown" &&
@@ -264,11 +279,9 @@ async function init() {
                 break;
             case "image":
                 queue.push(em);
-                createImgMsg(em);
                 break;
         }
     }
-    console.log(res, queue);
     initImages(queue);
 }
 // https://stackoverflow.com/questions/8667070/javascript-regular-expression-to-validate-url
@@ -360,6 +373,8 @@ function createTextMsg(message) {
 }
 function createImgMsg(image) {
     let container = $("<div>", { class: "message-wrap" }), img = $("<img>", { class: "img-message" });
+    if (image.author === variables.currentUser)
+        container.addClass("sent");
     container
         .attr("ms_id", image._id)
         .attr("object_type", "image")
@@ -367,10 +382,12 @@ function createImgMsg(image) {
         .appendTo(elements.chat_area);
 }
 async function initImages(queue) {
-    while (queue.length) {
-        let img = queue.get();
+    queue.getEach((img) => {
+        createImgMsg(img);
+        imageSettings.transition = true;
+        imageSettings.title = img.title;
         socket.emit("image_request", img);
-    }
+    });
 }
 function fillImg(img) {
     let base64 = imageSettings.parts.join("");

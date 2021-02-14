@@ -13,8 +13,8 @@ export const elements = {
     change_username_btn: $("#change-username"),
     clear_logs_btn: $(".clear-all-logs-button"),
     logout_btn: $("#change-username"),
-    advanced_tab_btn: $("#toggle-advanced-tab"),
-    advanced_tab: $("#advanced-tab"),
+    settings_window_btn: $("#toggle-settings-window"),
+    settings_window: $("#settings-window"),
     photo_input: $("#photoInput")
 };
 export let variables = {
@@ -33,7 +33,7 @@ export let imageSettings = {
     }
 }, elementsActive = {
     changeUserDropdown: false,
-    advancedTab: false,
+    settingsWindow: false,
     userContextMenu: false
 };
 export const socket = io();

@@ -7,7 +7,7 @@ export class ContextMenu {
         if (this.target.hasClass("message"))
             this.selectedElement = $(event.target);
         else
-            this.selectedElement = $(event.target).parents(".message`");
+            this.selectedElement = $(event.target).parents(".message");
         this.contentElement = this.selectedElement.find(".content");
         elementsActive.userContextMenu = true;
         this.menuElement = $("<div>", { class: "context-menu" });
@@ -207,6 +207,15 @@ export class Queue {
     empty() {
         if (this.data.length > 0)
             this.data = [];
+        return this;
+    }
+    getEach(operation) {
+        while (this.length)
+            operation(this.get());
+        return this;
+    }
+    forEach(operation) {
+        this.data.forEach(operation);
         return this;
     }
     /** Queue length */
