@@ -42,7 +42,10 @@ const argv = optimist_1.default
     .alias("p", "port")
     .describe("port", "Port where to run app")
     .default("p", 8000).argv;
-let CONFIG = null;
+let CONFIG = {
+    noConnectionLogs: false,
+    noNotifications: false
+};
 // Open mongodb connection
 mongoose_1.connect("mongodb://localhost:27017/Chat", {
     useFindAndModify: true,
@@ -54,13 +57,14 @@ models_1.Config.exists({}, async (err, exists) => {
     if (err)
         throw err;
     if (exists) {
-        models_1.Config.findOne({}).then((obj) => {
-            CONFIG = obj.toObject();
+        models_1.Config.findOne({}).then(async (obj) => {
+            obj = await obj.toObject();
+            CONFIG.noConnectionLogs = obj.noConnectionLogs;
+            CONFIG.noNotifications = obj.noNotifications;
         });
     }
     else {
-        const config = await (await new models_1.Config({}).save()).toObject();
-        CONFIG = config;
+        new models_1.Config({}).save();
     }
 });
 mongoose_1.connection
@@ -89,9 +93,12 @@ io.on("connection", (socket) => {
         io.sockets.emit("text_message", msg.toObject());
     });
     socket.on("connect_log", async (obj) => {
-        await new models_1.ConnectionLog(obj).save().catch(logError(socket, "Connect Log"));
-        if (!CONFIG.noConnectionLogs)
+        if (!CONFIG.noConnectionLogs) {
+            await new models_1.ConnectionLog(obj)
+                .save()
+                .catch(logError(socket, "Connect Log"));
             socket.broadcast.emit("connect_log", obj);
+        }
     });
     socket.on("clear_history", async () => {
         fs_1.readdir(IMG_PATH, (err, files) => {
@@ -210,14 +217,15 @@ app
         res.sendStatus(500);
     }
 })
-    .put(async (req, res, next) => {
+    .post(express_1.default.text({ defaultCharset: "utf-8" }), async (req, res, next) => {
     try {
-        const query = req.query;
-        for (let key of Object.keys(query))
-            if (!(key in CONFIG))
-                return res.end("Invalid key " + key);
-        const newConfig = await models_1.Config.updateOne({}, query);
-        io.sockets.emit("config_update", newConfig.toObject());
+        const body = req.body;
+        CONFIG[body] = !CONFIG[body];
+        if (!(body in CONFIG))
+            return res.end("Invalid key " + body);
+        await models_1.Config.updateOne({}, CONFIG);
+        io.sockets.emit("config_update", CONFIG);
+        res.sendStatus(200);
     }
     catch (err) {
         res.sendStatus(500);

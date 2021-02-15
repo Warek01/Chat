@@ -99,7 +99,7 @@ header #dropdown button:focus { border: 1px solid #333333; }
 #settings-window { position: absolute; display: none; width: 85%; height: 85%; left: 7.5%; top: 9%; background-color: rgba(255, 255, 255, 0.925); border-radius: 10px; box-shadow: 4px 4px 4px rgba(186, 186, 186, 0.35), 4px 4px 12px rgba(186, 186, 186, 0.35); }
 #settings-window .area { position: relative; height: 85%; }
 #settings-window .switch-wrapper { display: flex; justify-content: center; }
-#settings-window button { position: relative; display: block; width: 250px; height: 40px; margin-left: auto; margin-right: auto; }
+#settings-window button { position: relative; display: block; width: 250px; height: 40px; margin-left: auto; margin-right: auto; left: 0; top: 0; transition: all 200ms ease; }
 #settings-window button:not(:last-child) { margin-top: 20px; }
 #settings-window button:hover { box-shadow: 4px 4px 6px rgba(143, 143, 143, 0.35), 4px 4px 15px rgba(186, 186, 186, 0.35); top: -4px; left: -4px; }
 #settings-window button.switch { border: none; background-color: #2ecc71; display: inline-block; margin: 0; }
@@ -107,3 +107,5 @@ header #dropdown button:focus { border: 1px solid #333333; }
 #settings-window button.switch.off { background-color: #e74c3c; }
 #settings-window #close-settings-window { bottom: 0; }
 #settings-window .margin-vertical { position: relative; display: block; margin-top: 50px; }
+#settings-window .logo-wrapper { display: flex; position: relative; height: 50px; justify-content: center; align-items: center; }
+#settings-window .logo-wrapper .logo { font-size: 48px; }

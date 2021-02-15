@@ -26,7 +26,10 @@ const argv = optimist
   .describe("port", "Port where to run app")
   .default("p", 8000).argv;
 
-let CONFIG: t.Config | null = null;
+let CONFIG: t.Config = {
+  noConnectionLogs: false,
+  noNotifications: false
+};
 
 // Open mongodb connection
 connect("mongodb://localhost:27017/Chat", {
@@ -40,12 +43,13 @@ Config.exists({}, async (err: Error, exists: boolean) => {
   if (err) throw err;
 
   if (exists) {
-    Config.findOne({}).then((obj: Document) => {
-      CONFIG = obj.toObject();
+    Config.findOne({}).then(async (obj: Document) => {
+      obj = await obj.toObject();
+      CONFIG.noConnectionLogs = (obj as any).noConnectionLogs;
+      CONFIG.noNotifications = (obj as any).noNotifications;
     });
   } else {
-    const config = await (await new Config({}).save()).toObject();
-    CONFIG = config;
+    new Config({}).save();
   }
 });
 
@@ -81,9 +85,13 @@ io.on("connection", (socket: Socket): void => {
   });
 
   socket.on("connect_log", async (obj: t.ConnectionLog) => {
-    await new ConnectionLog(obj).save().catch(logError(socket, "Connect Log"));
+    if (!CONFIG.noConnectionLogs) {
+      await new ConnectionLog(obj)
+        .save()
+        .catch(logError(socket, "Connect Log"));
 
-    if (!CONFIG.noConnectionLogs) socket.broadcast.emit("connect_log", obj);
+      socket.broadcast.emit("connect_log", obj);
+    }
   });
 
   socket.on("clear_history", async () => {
@@ -242,20 +250,25 @@ app
       res.sendStatus(500);
     }
   })
-  .put(async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const query = req.query;
+  .post(
+    express.text({ defaultCharset: "utf-8" }),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const body = req.body;
+        CONFIG[body] = !CONFIG[body];
 
-      for (let key of Object.keys(query))
-        if (!(key in CONFIG)) return res.end("Invalid key " + key);
+        if (!(body in CONFIG)) return res.end("Invalid key " + body);
 
-      const newConfig: Document = await Config.updateOne({}, query);
-      io.sockets.emit("config_update", newConfig.toObject());
-    } catch (err) {
-      res.sendStatus(500);
-      throw err;
+        await Config.updateOne({}, CONFIG);
+        io.sockets.emit("config_update", CONFIG);
+
+        res.sendStatus(200);
+      } catch (err) {
+        res.sendStatus(500);
+        throw err;
+      }
     }
-  });
+  );
 
 // Clear db history
 app.get("/clear", (req: Request, res: Response, next: NextFunction) => {

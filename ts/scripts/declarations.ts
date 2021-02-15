@@ -1,4 +1,5 @@
 import { ContextMenu } from "./structures.js";
+import { MessageTypes as t } from "../db_types";
 import { Socket } from "socket.io";
 
 export const elements = {
@@ -30,10 +31,15 @@ export let variables: {
   currentUser: string;
   previousUser: string;
   contextMenu: ContextMenu;
+  CONFIG: t.Config;
 } = {
   currentUser: null,
   previousUser: null,
-  contextMenu: null
+  contextMenu: null,
+  CONFIG: {
+    noConnectionLogs: false,
+    noNotifications: false
+  }
 };
 
 export let imageSettings: {

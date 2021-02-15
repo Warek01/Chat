@@ -1,4 +1,4 @@
-import { ContextMenu, Queue } from "./structures.js";
+import { ContextMenu, Queue, Stack } from "./structures.js";
 import { elements as elem, elementsActive, variables, imageSettings, socket } from "./declarations.js";
 $(document).ready(function (event) {
     if (document.cookie.match(/username/)) {
@@ -18,6 +18,24 @@ $(document).ready(function (event) {
         elem.chat_form.hide();
         validatePreviousUserBtn();
     }
+});
+fetch("/config", {
+    method: "GET",
+    headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-cache"
+    }
+})
+    .then(res => res.json())
+    .then(res => {
+    variables.CONFIG = res;
+    window.CONFIG = res;
+    for (const [key, value] of Object.entries(variables.CONFIG))
+        if (value)
+            $(`[data-config="${key}"]`).addClass("off");
+})
+    .catch((err) => {
+    console.warn("Config error", err);
 });
 elem.photo_input.change(sendPhoto);
 elem.buttons.send_text.click(sendMessage);
@@ -130,6 +148,13 @@ socket
         .end()
         .remove();
 })
+    .on("config_update", (config) => {
+    variables.CONFIG = config;
+    window.CONFIG = config;
+    for (const [key, value] of Object.entries(variables.CONFIG))
+        if (value)
+            $(`[data-config="${key}"]`).addClass("off");
+})
     // Image implementation
     .on("image_data", (image) => {
     if (!imageSettings.transition) {
@@ -192,8 +217,29 @@ elem.buttons.send_photo.click(function (event) {
     const imgInput = $("#photoInput");
     imgInput.trigger("click");
 });
+$("button.switch").click(function (event) {
+    updateConfig($(this).data("config"));
+    // if ($(this).hasClass("off")) $(this).removeClass("off");
+    // else $(this).addClass("off");
+});
 // --------------------------------------------------------------
 // Functions
+function updateConfig(data) {
+    if (data in variables.CONFIG)
+        fetch("/config", {
+            method: "POST",
+            headers: {
+                "Content-Type": "text/plain",
+                "Cache-Control": "no-cache"
+            },
+            body: data
+        })
+            .then(res => res.text())
+            .then(res => console.log(`Config update; ${data}: ${res}`))
+            .catch((err) => {
+            console.warn("Config update error", err);
+        });
+}
 function removeCookie(cookie) {
     document.cookie = `${encodeURIComponent(cookie)}=0; max-age=0`;
     return cookie;
@@ -319,6 +365,19 @@ function splitToLength(str, len) {
         pieces.push(str.slice(accumulated));
     return pieces;
 }
+(() => {
+    const global = window;
+    global.splitToLength = splitToLength;
+    global.setCookie = setCookie;
+    global.removeCookie = removeCookie;
+    global.clearMsgHistory = clearMsgHistory;
+    global.clearAllLogs = clearAllLogs;
+    global.SOCKET = socket;
+    global.ELEMENTS = elem;
+    global.CONFIG = variables.CONFIG;
+    global.Queue = Queue;
+    global.Stack = Stack;
+})();
 // --------------------------------------------------
 // Messages area
 function createConnectionLog(obj) {

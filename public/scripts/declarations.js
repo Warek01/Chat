@@ -24,7 +24,11 @@ export const elements = {
 export let variables = {
     currentUser: null,
     previousUser: null,
-    contextMenu: null
+    contextMenu: null,
+    CONFIG: {
+        noConnectionLogs: false,
+        noNotifications: false
+    }
 };
 export let imageSettings = {
     transition: false,

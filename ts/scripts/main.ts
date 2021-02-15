@@ -1,5 +1,5 @@
 import { MessageTypes as t } from "../db_types";
-import { ContextMenu, Queue } from "./structures.js";
+import { ContextMenu, Queue, Stack } from "./structures.js";
 import {
   elements as elem,
   elementsActive,
@@ -30,6 +30,25 @@ $(document).ready(function (event): void {
     validatePreviousUserBtn();
   }
 });
+
+fetch("/config", {
+  method: "GET",
+  headers: {
+    "Content-Type": "application/json",
+    "Cache-Control": "no-cache"
+  }
+})
+  .then(res => res.json())
+  .then(res => {
+    variables.CONFIG = res;
+    (window as any).CONFIG = res;
+
+    for (const [key, value] of Object.entries(variables.CONFIG))
+      if (value) $(`[data-config="${key}"]`).addClass("off");
+  })
+  .catch((err: Error) => {
+    console.warn("Config error", err);
+  });
 
 elem.photo_input.change(sendPhoto);
 elem.buttons.send_text.click(sendMessage);
@@ -75,11 +94,11 @@ elem.buttons.close_settings_menu.click(function (event): void {
   elem.buttons.edit_user.css("pointer-events", "all");
 });
 
-elem.buttons.clear_history.click(function(event): void {
+elem.buttons.clear_history.click(function (event): void {
   socket.emit("clear_history");
 });
 
-elem.buttons.clear_logs.click(function(event): void{
+elem.buttons.clear_logs.click(function (event): void {
   socket.emit("clear_logs");
 });
 
@@ -145,6 +164,13 @@ socket
       .css("margin-bottom", 0)
       .end()
       .remove();
+  })
+  .on("config_update", (config: t.Config) => {
+    variables.CONFIG = config;
+    (window as any).CONFIG = config;
+
+    for (const [key, value] of Object.entries(variables.CONFIG))
+      if (value) $(`[data-config="${key}"]`).addClass("off");
   })
   // Image implementation
   .on("image_data", (image: t.Image) => {
@@ -223,8 +249,32 @@ elem.buttons.send_photo.click(function (event: JQuery.ClickEvent): void {
   imgInput.trigger("click");
 });
 
+$("button.switch").click(function (event) {
+  updateConfig($(this).data("config"));
+
+  // if ($(this).hasClass("off")) $(this).removeClass("off");
+  // else $(this).addClass("off");
+});
+
 // --------------------------------------------------------------
 // Functions
+
+function updateConfig(data: string) {
+  if (data in variables.CONFIG)
+    fetch("/config", {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain",
+        "Cache-Control": "no-cache"
+      },
+      body: data
+    })
+      .then(res => res.text())
+      .then(res => console.log(`Config update; ${data}: ${res}`))
+      .catch((err: Error) => {
+        console.warn("Config update error", err);
+      });
+}
 
 function removeCookie(cookie: string): string {
   document.cookie = `${encodeURIComponent(cookie)}=0; max-age=0`;
@@ -383,6 +433,23 @@ function splitToLength(str: string, len: number) {
   if (modulo) pieces.push(str.slice(accumulated));
   return pieces;
 }
+
+(() => {
+  const global: any = window;
+
+  global.splitToLength = splitToLength;
+  global.setCookie = setCookie;
+  global.removeCookie = removeCookie;
+  global.clearMsgHistory = clearMsgHistory;
+  global.clearAllLogs = clearAllLogs;
+
+  global.SOCKET = socket;
+  global.ELEMENTS = elem;
+  global.CONFIG = variables.CONFIG;
+
+  global.Queue = Queue;
+  global.Stack = Stack;
+})();
 
 // --------------------------------------------------
 // Messages area

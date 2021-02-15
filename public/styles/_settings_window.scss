@@ -26,6 +26,9 @@
     height: 40px;
     margin-left: auto;
     margin-right: auto;
+    left: 0;
+    top: 0;
+    transition: all 200ms ease;
 
     &:not(:last-child) {
       margin-top: 20px;
@@ -62,5 +65,17 @@
     position: relative;
     display: block;
     margin-top: 50px;
+  }
+
+  .logo-wrapper {
+    display: flex;
+    position: relative;
+    height: 50px;
+    justify-content: center;
+    align-items: center;
+
+    .logo {
+      font-size: 48px;
+    }
   }
 }
