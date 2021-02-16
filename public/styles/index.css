@@ -58,6 +58,7 @@ header #dropdown button:focus { border: 1px solid #333333; }
 #chat-wrapper { position: absolute; display: flex; z-index: -1; justify-content: center; align-items: center; width: 100%; height: calc(100% - 60px); top: 60px; /* Width */ /* Track */ /* Handle */ }
 #chat-wrapper .chat-window { position: relative; display: block; height: 85vh; width: 80vw; border-radius: 10px; }
 @media screen and (max-width: 1501px) { #chat-wrapper .chat-window { width: 90vw; height: 92.5%; } }
+@media screen and (max-width: 1001px) { #chat-wrapper .chat-window { width: 100vw; height: 100%; } }
 #chat-wrapper #chat-area { position: relative; display: block; width: 95%; height: 84%; margin: 1% auto 5px auto; overflow-y: auto; }
 #chat-wrapper #chat-area * { transition: all .3s ease; }
 #chat-wrapper ::-webkit-scrollbar { width: 8px; }

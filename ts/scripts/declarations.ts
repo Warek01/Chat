@@ -2,6 +2,9 @@ import { ContextMenu } from "./structures.js";
 import { MessageTypes as t } from "../db_types";
 import { Socket } from "socket.io";
 
+export const global: any = window;
+export const APP_TITLE = "Chat app";
+
 export const elements = {
   login_form: $("#login-wrapper"),
   login_input: $("#username"),
@@ -31,11 +34,15 @@ export let variables: {
   currentUser: string;
   previousUser: string;
   contextMenu: ContextMenu;
+  lostFocus: boolean;
+  nrOfNotifications: number;
   CONFIG: t.Config;
 } = {
   currentUser: null,
   previousUser: null,
   contextMenu: null,
+  lostFocus: false,
+  nrOfNotifications: 0,
   CONFIG: {
     noConnectionLogs: false,
     noNotifications: false

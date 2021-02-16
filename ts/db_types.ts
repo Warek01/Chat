@@ -2,6 +2,7 @@ export { Socket, Server } from "socket.io";
 export type int = number;
 export type longInt = number;
 export type double = number;
+export type base64 = string;
 
 export namespace MessageTypes {
   export interface TextMessage {

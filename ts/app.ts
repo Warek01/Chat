@@ -155,9 +155,9 @@ io.on("connection", (socket: Socket): void => {
         path.join(IMG_PATH, image.title),
         { encoding: "base64" },
         (err: NodeJS.ErrnoException, data: string) => {
+          if (err) throw err;
           parts = splitToLength(data, 20 * 2 ** 10);
 
-          // io.sockets.emit("image_data", image);
           for (const part of parts) socket.emit("image_part", image, part);
           socket.emit("image_send_end", image);
 

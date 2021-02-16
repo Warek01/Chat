@@ -1,3 +1,5 @@
+export const global = window;
+export const APP_TITLE = "Chat app";
 export const elements = {
     login_form: $("#login-wrapper"),
     login_input: $("#username"),
@@ -25,6 +27,8 @@ export let variables = {
     currentUser: null,
     previousUser: null,
     contextMenu: null,
+    lostFocus: false,
+    nrOfNotifications: 0,
     CONFIG: {
         noConnectionLogs: false,
         noNotifications: false

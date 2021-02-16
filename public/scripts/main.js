@@ -1,5 +1,5 @@
 import { ContextMenu, Queue, Stack } from "./structures.js";
-import { elements as elem, elementsActive, variables, imageSettings, socket } from "./declarations.js";
+import { global, APP_TITLE, elements as elem, elementsActive, variables, imageSettings, socket } from "./declarations.js";
 $(document).ready(function (event) {
     if (document.cookie.match(/username/)) {
         variables.currentUser = decodeURIComponent((document.cookie.match(/(?<=username=)\w+/) || [""])[0]);
@@ -102,6 +102,12 @@ elem.chat_input.keypress(function (event) {
 socket
     .on("text_message", (message) => {
     createTextMsg(message);
+    if (variables.lostFocus && !variables.CONFIG.noNotifications) {
+        variables.nrOfNotifications++;
+        notification(variables.nrOfNotifications === 1
+            ? `New message (${message.author})`
+            : `${variables.nrOfNotifications} new messages`);
+    }
 })
     .on("connect_log", (obj) => {
     createConnectionLog(obj);
@@ -211,19 +217,46 @@ $(window).on({
             author: variables.currentUser,
             timestamp: Date.now()
         });
+    },
+    // Blur & focus doesn't shoot when devtools are active
+    blur: function (event) {
+        variables.lostFocus = true;
+    },
+    focus: function (event) {
+        variables.lostFocus = false;
+        if (global.NT_TMOUT) {
+            clearTimeout(global.NT_TMOUT);
+            global.NT_TMOUT = null;
+            document.title = APP_TITLE;
+        }
     }
 });
 elem.buttons.send_photo.click(function (event) {
-    const imgInput = $("#photoInput");
-    imgInput.trigger("click");
+    $("#photoInput").trigger("click");
 });
 $("button.switch").click(function (event) {
     updateConfig($(this).data("config"));
-    // if ($(this).hasClass("off")) $(this).removeClass("off");
-    // else $(this).addClass("off");
 });
 // --------------------------------------------------------------
 // Functions
+function notification(message) {
+    if (global.NT_TMOUT) {
+        clearTimeout(global.NT_TMOUT);
+        global.NT_TMOUT = null;
+    }
+    setTimeout(function changeTitle() {
+        document.title = message;
+        global.NT_TMOUT = setTimeout(() => {
+            revertTitle(changeTitle);
+        }, 1000);
+    }, 500);
+    function revertTitle(f) {
+        document.title = APP_TITLE;
+        setTimeout(() => {
+            f();
+        }, 500);
+    }
+}
 function updateConfig(data) {
     if (data in variables.CONFIG)
         fetch("/config", {
@@ -318,6 +351,7 @@ async function init() {
                 createConnectionLog(em);
                 break;
             case "image":
+                createImgMsg(em);
                 queue.push(em);
                 break;
         }
@@ -365,19 +399,6 @@ function splitToLength(str, len) {
         pieces.push(str.slice(accumulated));
     return pieces;
 }
-(() => {
-    const global = window;
-    global.splitToLength = splitToLength;
-    global.setCookie = setCookie;
-    global.removeCookie = removeCookie;
-    global.clearMsgHistory = clearMsgHistory;
-    global.clearAllLogs = clearAllLogs;
-    global.SOCKET = socket;
-    global.ELEMENTS = elem;
-    global.CONFIG = variables.CONFIG;
-    global.Queue = Queue;
-    global.Stack = Stack;
-})();
 // --------------------------------------------------
 // Messages area
 function createConnectionLog(obj) {
@@ -436,7 +457,6 @@ function createImgMsg(image) {
 }
 async function initImages(queue) {
     queue.getEach((img) => {
-        createImgMsg(img);
         imageSettings.transition = true;
         imageSettings.title = img.title;
         socket.emit("image_request", img);
@@ -523,3 +543,15 @@ async function sendPhoto() {
         reader.readAsDataURL(file);
     }
 }
+// temp
+global.splitToLength = global.split = splitToLength;
+global.setCookie = setCookie;
+global.removeCookie = removeCookie;
+global.clearMsgHistory = clearMsgHistory;
+global.clearAllLogs = clearAllLogs;
+global.SOCKET = socket;
+global.ELEMENTS = elem;
+global.CONFIG = variables.CONFIG;
+global.Queue = Queue;
+global.Stack = Stack;
+global.nt = global.notification = notification;
