@@ -404,7 +404,6 @@ function sendMessage(): void {
 
 async function init(): Promise<any> {
   clearMsgHistory(false);
-  const queue = new Queue<t.Image>();
 
   let req: Response = await fetch("/init"),
     res: (t.TextMessage | t.ConnectionLog | t.Image)[] = await req.json();
@@ -419,11 +418,9 @@ async function init(): Promise<any> {
         break;
       case "image":
         createImgMsg(em);
-        queue.push(em);
         break;
     }
   }
-  initImages(queue);
 }
 
 // https://stackoverflow.com/questions/8667070/javascript-regular-expression-to-validate-url
@@ -540,16 +537,42 @@ function createTextMsg(message: t.TextMessage): void {
 }
 
 function createImgMsg(image: t.Image): void {
-  let container = $("<div>", { class: "message-wrap" }),
-    img = $("<img>", { class: "img-message" });
+  let MsgContainer = $("<div>", { class: "message-wrap" }),
+    downloadContainer = $("<div>", { class: "download-container" });
 
-  if (image.author === variables.currentUser) container.addClass("sent");
+  if (image.author === variables.currentUser)
+    MsgContainer.addClass("sent").append(
+      $("<span>", { class: "sender", html: image.author }),
+      $("<span>", { class: "date", html: getHour(image.timestamp) })
+    );
 
-  container
-    .attr("ms_id", image._id)
+  MsgContainer.attr("ms_id", image._id)
     .attr("object_type", "image")
-    .append(img)
+    .append(
+      $("<img>", { class: "img-message inactive" }),
+
+      downloadContainer.append(
+        $("<button>", {
+          class: "download-btn",
+          html: "",
+          onclick: function (event) {}
+        }).append(
+          $("<img>", {
+            alt: "",
+            class: "",
+            html: "",
+            src: "./img/download.png"
+          })
+        )
+      )
+    )
     .appendTo(elem.chat_area);
+
+  if (image.author !== variables.currentUser)
+    MsgContainer.append(
+      $("<span>", { class: "sender", html: image.author }),
+      $("<span>", { class: "date", html: getHour(image.timestamp) })
+    );
 }
 
 async function initImages(queue: Queue<t.Image>) {

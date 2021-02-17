@@ -340,7 +340,6 @@ function sendMessage() {
 }
 async function init() {
     clearMsgHistory(false);
-    const queue = new Queue();
     let req = await fetch("/init"), res = await req.json();
     for (let em of res) {
         switch (em.object_type) {
@@ -352,11 +351,9 @@ async function init() {
                 break;
             case "image":
                 createImgMsg(em);
-                queue.push(em);
                 break;
         }
     }
-    initImages(queue);
 }
 // https://stackoverflow.com/questions/8667070/javascript-regular-expression-to-validate-url
 function validateUrl(value) {
@@ -446,14 +443,24 @@ function createTextMsg(message) {
         .appendTo(elem.chat_area);
 }
 function createImgMsg(image) {
-    let container = $("<div>", { class: "message-wrap" }), img = $("<img>", { class: "img-message" });
+    let MsgContainer = $("<div>", { class: "message-wrap" }), downloadContainer = $("<div>", { class: "download-container" });
     if (image.author === variables.currentUser)
-        container.addClass("sent");
-    container
-        .attr("ms_id", image._id)
+        MsgContainer.addClass("sent").append($("<span>", { class: "sender", html: image.author }), $("<span>", { class: "date", html: getHour(image.timestamp) }));
+    MsgContainer.attr("ms_id", image._id)
         .attr("object_type", "image")
-        .append(img)
+        .append($("<img>", { class: "img-message inactive" }), downloadContainer.append($("<button>", {
+        class: "download-btn",
+        html: "",
+        onclick: function (event) { }
+    }).append($("<img>", {
+        alt: "",
+        class: "",
+        html: "",
+        src: "./img/download.png"
+    }))))
         .appendTo(elem.chat_area);
+    if (image.author !== variables.currentUser)
+        MsgContainer.append($("<span>", { class: "sender", html: image.author }), $("<span>", { class: "date", html: getHour(image.timestamp) }));
 }
 async function initImages(queue) {
     queue.getEach((img) => {
