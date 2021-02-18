@@ -512,11 +512,16 @@ function createTextMsg(message: t.TextMessage): void {
       class: "date"
     });
 
-  if (message.author === variables.currentUser) {
-    _message.append(sender, date, content);
-  } else {
-    _message.append(content, sender, date);
-  }
+  if (message.author === variables.currentUser)
+    _message.append(
+      $("<div>", { class: "info-wrap", html: "" }).append(sender, date),
+      content
+    );
+  else
+    _message.append(
+      content,
+      $("<div>", { class: "info-wrap", html: "" }).append(sender, date)
+    );
 
   if (message.is_edited) {
     let editContainer = $("<span>", {
@@ -528,6 +533,12 @@ function createTextMsg(message: t.TextMessage): void {
   }
 
   if (message.author === variables.currentUser) container.addClass("sent");
+
+  for (let em of content.text().split(" "))
+    if (em.length > 80)  {
+      content.css("word-break", "break-all");
+      break;
+    }
 
   container
     .attr("ms_id", message._id as string)
@@ -542,8 +553,10 @@ function createImgMsg(image: t.Image): void {
 
   if (image.author === variables.currentUser)
     MsgContainer.addClass("sent").append(
-      $("<span>", { class: "sender", html: image.author }),
-      $("<span>", { class: "date", html: getHour(image.timestamp) })
+      $("<div>", { class: "info-wrap", html: "" }).append(
+        $("<span>", { class: "sender", html: image.author }),
+        $("<span>", { class: "date", html: getHour(image.timestamp) })
+      )
     );
 
   MsgContainer.attr("ms_id", image._id)
@@ -570,8 +583,10 @@ function createImgMsg(image: t.Image): void {
 
   if (image.author !== variables.currentUser)
     MsgContainer.append(
-      $("<span>", { class: "sender", html: image.author }),
-      $("<span>", { class: "date", html: getHour(image.timestamp) })
+      $("<div>", { class: "info-wrap", html: "" }).append(
+        $("<span>", { class: "sender", html: image.author }),
+        $("<span>", { class: "date", html: getHour(image.timestamp) })
+      )
     );
 }
 

@@ -421,12 +421,10 @@ function createTextMsg(message) {
         html: getHour(message.timestamp),
         class: "date"
     });
-    if (message.author === variables.currentUser) {
-        _message.append(sender, date, content);
-    }
-    else {
-        _message.append(content, sender, date);
-    }
+    if (message.author === variables.currentUser)
+        _message.append($("<div>", { class: "info-wrap", html: "" }).append(sender, date), content);
+    else
+        _message.append(content, $("<div>", { class: "info-wrap", html: "" }).append(sender, date));
     if (message.is_edited) {
         let editContainer = $("<span>", {
             html: "Edited",
@@ -436,6 +434,11 @@ function createTextMsg(message) {
     }
     if (message.author === variables.currentUser)
         container.addClass("sent");
+    for (let em of content.text().split(" "))
+        if (em.length > 80) {
+            content.css("word-break", "break-all");
+            break;
+        }
     container
         .attr("ms_id", message._id)
         .attr("object_type", message.object_type)
@@ -445,7 +448,7 @@ function createTextMsg(message) {
 function createImgMsg(image) {
     let MsgContainer = $("<div>", { class: "message-wrap" }), downloadContainer = $("<div>", { class: "download-container" });
     if (image.author === variables.currentUser)
-        MsgContainer.addClass("sent").append($("<span>", { class: "sender", html: image.author }), $("<span>", { class: "date", html: getHour(image.timestamp) }));
+        MsgContainer.addClass("sent").append($("<div>", { class: "info-wrap", html: "" }).append($("<span>", { class: "sender", html: image.author }), $("<span>", { class: "date", html: getHour(image.timestamp) })));
     MsgContainer.attr("ms_id", image._id)
         .attr("object_type", "image")
         .append($("<img>", { class: "img-message inactive" }), downloadContainer.append($("<button>", {
@@ -460,7 +463,7 @@ function createImgMsg(image) {
     }))))
         .appendTo(elem.chat_area);
     if (image.author !== variables.currentUser)
-        MsgContainer.append($("<span>", { class: "sender", html: image.author }), $("<span>", { class: "date", html: getHour(image.timestamp) }));
+        MsgContainer.append($("<div>", { class: "info-wrap", html: "" }).append($("<span>", { class: "sender", html: image.author }), $("<span>", { class: "date", html: getHour(image.timestamp) })));
 }
 async function initImages(queue) {
     queue.getEach((img) => {

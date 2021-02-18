@@ -71,37 +71,32 @@ header #dropdown button:focus { border: 1px solid #333333; }
 #chat-wrapper #sendBtn { margin-left: 10px; height: 30px; }
 #chat-wrapper #photoBtn { margin-left: 5px; height: 30px; }
 
-.message-wrap { position: relative; display: block; min-height: 35px; height: auto; width: 100%; margin-top: 10px; }
-.message-wrap .message { position: relative; display: inline-block; width: auto; max-width: 50%; }
+.message-wrap { position: relative; display: flex; align-items: flex-end; min-height: 35px; height: auto; width: 100%; margin-top: 10px; }
+.message-wrap .message { position: relative; display: flex; max-width: 50%; }
 @media screen and (max-width: 601px) { .message-wrap .message { max-width: 80%; }
   .message-wrap .message .content { max-width: 950%; } }
-.message-wrap .message .content { position: relative; display: inline-flex; max-width: 80%; right: 0; align-items: center; justify-content: center; margin: 5px 0 5px 10px; padding: 5px 10px; border-radius: 20px; border-top-left-radius: 0; word-break: break-all; background-color: #8b9194; }
-.message-wrap .sender { display: inline-block; position: relative; top: calc(100% - 14px); height: 12px; font-size: 10px; margin: 0 4px 0 10px; margin-right: 8px; }
+.message-wrap .content { position: relative; display: inline-flex; max-width: 80%; right: 0; align-items: center; justify-content: center; margin: 5px 0 5px 10px; padding: 5px 10px; border-radius: 20px; border-top-left-radius: 0; word-break: normal; background-color: #8b9194; }
+.message-wrap .info-wrap { position: relative; display: flex; height: 25px; width: 69%; margin-left: 20px; justify-content: flex-start; align-items: center; }
+.message-wrap .info-wrap span { display: block; position: relative; font-size: 10px; max-height: 20px; top: 0; }
+.message-wrap .info-wrap .sender { margin-right: 10px; }
+.message-wrap .info-wrap .date::before { content: ""; position: absolute; display: block; height: 15px; width: 1px; top: -2px; left: -5px; background-color: #e1b12c; }
 .message-wrap a { color: #f1c40f; }
 .message-wrap a:hover { color: #f9e8a0; }
-.message-wrap .date { position: relative; display: inline-block; bottom: -5px; font-size: 10px; }
-.message-wrap .date::before { content: ""; position: absolute; display: block; height: 15px; width: 1px; top: -2px; left: -4px; background-color: #e1b12c; }
+.message-wrap .edited-mark { width: 30px; position: absolute; font-size: 8px; bottom: -10px; }
 .message-wrap.sent { position: relative; display: flex; justify-content: flex-end; }
+.message-wrap.sent .info-wrap { justify-content: flex-end; margin-right: 20px; margin-left: none; }
 .message-wrap.sent .edited-mark { right: 20px; }
 .message-wrap.sent .img-message { right: 10px; }
 .message-wrap.sent .download-container { right: 10px; }
-.message-wrap.sent .message { position: relative; display: flex; justify-content: flex-end; }
-.message-wrap.sent .content { position: relative; display: inline-block; background-color: #3498db; right: 5px; border-top-left-radius: 20px; border-bottom-right-radius: 0; margin-left: 0; }
-.message-wrap.sent .date { top: calc(100% - 14px); left: 0; margin-right: 10px; }
-.message-wrap:not(.sent) .sender { top: 5px; left: -3px; }
-.message-wrap:not(.sent) .edited-mark { left: 20px; }
-.message-wrap .edited-mark { width: 30px; position: absolute; font-size: 8px; bottom: -10px; }
+.message-wrap.sent .content { background-color: #3498db; right: 5px; border-top-left-radius: 20px; border-bottom-right-radius: 0; margin-left: 0; }
+.message-wrap .img-message { position: relative; display: inline-block; width: 400px; height: 200px; border: none; outline: none; border-radius: 10px; }
+.message-wrap .img-message.inactive { display: none; }
 .message-wrap.image .message .content-img { width: 384px; height: 216px; }
+.message-wrap .download-container { position: relative; display: flex; top: 0; width: 30%; height: 15vw; justify-content: center; align-items: center; background-color: #3a434b; border-radius: 10px; margin: 0; }
+.message-wrap button.download-btn { border-radius: 50%; padding: 20px; border: none; background-color: #acb5be; }
 
 .connection { position: relative; display: flex; width: 100%; height: 15px; margin-top: 5px; justify-content: center; align-items: center; }
-.connection .username { display: inline-block; text-align: center; color: #fff; font-size: 12px; }
-
-.img-message { position: relative; width: 400px; height: 200px; border: none; outline: none; border-radius: 10px; }
-.img-message.inactive { filter: opacity(0); }
-
-.download-container { position: absolute; display: flex; top: 0; width: 400px; height: 200px; justify-content: center; align-items: center; background-color: #3a434b; border-radius: 10px; }
-
-button.download-btn { border-radius: 50%; padding: 20px; border: none; background-color: #acb5be; }
+.connection .username { display: inline-block; text-align: center; color: #1abc9c; font-size: 12px; }
 
 #settings-window { position: absolute; display: none; width: 85%; height: 85%; left: 7.5%; top: 9%; background-color: rgba(255, 255, 255, 0.925); border-radius: 10px; box-shadow: 4px 4px 4px rgba(186, 186, 186, 0.35), 4px 4px 12px rgba(186, 186, 186, 0.35); }
 #settings-window .area { position: relative; height: 85%; }
