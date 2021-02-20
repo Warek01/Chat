@@ -136,17 +136,18 @@ io.on("connection", (socket) => {
     });
     // Images implementation
     let imageProcessing = false, parts = [], currentImg;
-    socket.on("image_request", async (image) => {
-        if (fs_1.existsSync(path_1.default.join(IMG_PATH, image.title))) {
+    socket.on("image_request", async (id) => {
+        const img = await (await models_1.Image.findById(id)).toObject();
+        if (fs_1.existsSync(path_1.default.join(IMG_PATH, img.title))) {
             imageProcessing = true;
-            currentImg = image;
-            fs_1.readFile(path_1.default.join(IMG_PATH, image.title), { encoding: "base64" }, (err, data) => {
+            currentImg = img;
+            fs_1.readFile(path_1.default.join(IMG_PATH, img.title), { encoding: "base64" }, (err, data) => {
                 if (err)
                     throw err;
                 parts = splitToLength(data, 20 * 2 ** 10);
                 for (const part of parts)
-                    socket.emit("image_part", image, part);
-                socket.emit("image_send_end", image);
+                    socket.emit("image_part", img, part);
+                socket.emit("image_send_end", img);
                 imageProcessing = false;
                 currentImg = null;
             });
@@ -161,7 +162,6 @@ io.on("connection", (socket) => {
                 .save()
                 .catch(logError(socket, "Image Data")));
             currentImg._id = document.toObject()._id;
-            io.sockets.emit("image_data", currentImg);
         }
     });
     socket.on("image_part", async (image, part) => {
@@ -179,19 +179,12 @@ io.on("connection", (socket) => {
                 .catch(err => {
                 console.log("Error resizin file", err);
             })
-                // Sending back
                 .then(() => {
                 fs_1.readFile(path_1.default.join(IMG_PATH, image.title), { encoding: "base64" }, (err, data) => {
-                    if (err)
-                        throw err;
-                    parts = splitToLength(data, 20 * 2 ** 10);
-                    for (let part of parts)
-                        io.sockets.emit("image_part", currentImg, part);
-                    io.sockets.emit("image_send_end", currentImg);
-                    imageProcessing = false;
-                    currentImg = null;
-                    parts = [];
                 });
+                imageProcessing = false;
+                currentImg = null;
+                parts = [];
             });
         }
     });

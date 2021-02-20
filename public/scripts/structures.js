@@ -16,7 +16,6 @@ export class ContextMenu {
             : this.target.parents(".message-wrap");
         this.id = this.wrapElement.attr("ms_id");
         this.objectType = this.wrapElement.attr("object_type");
-        console.log(this.objectType, this.wrapElement[0], this.target);
         switch (this.objectType) {
             case "text_message":
                 let copyBtn = $("<span>", { html: "Copy" }), openLinkBtn = $("<span>", {

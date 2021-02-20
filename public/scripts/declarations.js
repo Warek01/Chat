@@ -38,6 +38,7 @@ export let imageSettings = {
     transition: false,
     parts: [],
     title: null,
+    id: null,
     reset() {
         this.parts = [];
         this.title = null;

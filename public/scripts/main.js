@@ -162,24 +162,17 @@ socket
             $(`[data-config="${key}"]`).addClass("off");
 })
     // Image implementation
-    .on("image_data", (image) => {
-    if (!imageSettings.transition) {
-        imageSettings.title = image.title;
-        imageSettings.transition = true;
-        createImgMsg(image);
-    }
-})
     .on("image_part", async (image, part) => {
-    if (image.title === imageSettings.title)
+    if (image._id === imageSettings.id)
         imageSettings.parts.push(part);
     else
-        throw Error(`Image name error
-    current title: ${imageSettings.title}; remote title: ${image.title}`);
+        throw Error(`Image id error
+    current id: ${imageSettings.id}; remote id: ${image._id}`);
 })
     .on("image_send_end", (data) => {
     if (imageSettings.transition) {
-        fillImg(data);
-        imageSettings.transition = false;
+        altImg(data);
+        imageSettings.reset();
     }
 });
 $(window).on({
@@ -445,39 +438,64 @@ function createTextMsg(message) {
         .append(_message)
         .appendTo(elem.chat_area);
 }
-function createImgMsg(image) {
-    let MsgContainer = $("<div>", { class: "message-wrap" }), downloadContainer = $("<div>", { class: "download-container" });
-    if (image.author === variables.currentUser)
-        MsgContainer.addClass("sent").append($("<div>", { class: "info-wrap", html: "" }).append($("<span>", { class: "sender", html: image.author }), $("<span>", { class: "date", html: getHour(image.timestamp) })));
-    MsgContainer.attr("ms_id", image._id)
-        .attr("object_type", "image")
-        .append($("<img>", { class: "img-message inactive" }), downloadContainer.append($("<button>", {
+function createImgMsg(image, src = null) {
+    const msgContainer = $("<div>", { class: "message-wrap" }), downloadContainer = $("<div>", { class: "download-container" }), downloadBtn = $("<button>", {
         class: "download-btn",
-        html: "",
-        onclick: function (event) { }
-    }).append($("<img>", {
+        html: ""
+    });
+    downloadBtn
+        .click(function (event) {
+        try {
+            if (imageSettings.transition)
+                return;
+            const target = $(event.target);
+            let id;
+            if (target.parents(".message-wrap").attr("object_type") == "image" &&
+                target.parents(".message-wrap").attr("ms_id"))
+                id = target.parents(".message-wrap").attr("ms_id");
+            socket.emit("image_request", id);
+            imageSettings.transition = true;
+            imageSettings.id = id;
+        }
+        catch (err) {
+            console.warn(err);
+        }
+    })
+        .append($("<img>", {
         alt: "",
         class: "",
         html: "",
         src: "./img/download.png"
-    }))))
+    }));
+    if (image.author === variables.currentUser)
+        msgContainer
+            .addClass("sent")
+            .append($("<div>", { class: "info-wrap", html: "" }).append($("<span>", { class: "sender", html: image.author }), $("<span>", { class: "date", html: getHour(image.timestamp) })));
+    msgContainer
+        .attr("ms_id", image._id)
+        .attr("object_type", "image")
+        .append($("<img>", { class: "img-message inactive" }), downloadContainer.append(downloadBtn))
         .appendTo(elem.chat_area);
     if (image.author !== variables.currentUser)
-        MsgContainer.append($("<div>", { class: "info-wrap", html: "" }).append($("<span>", { class: "sender", html: image.author }), $("<span>", { class: "date", html: getHour(image.timestamp) })));
+        msgContainer.append($("<div>", { class: "info-wrap", html: "" }).append($("<span>", { class: "sender", html: image.author }), $("<span>", { class: "date", html: getHour(image.timestamp) })));
+    if (src) {
+        console.log(src.slice(0, 10));
+        downloadContainer.hide();
+        msgContainer
+            .find(".img-message")
+            .removeClass("inactive")[0].src = src;
+    }
+    return msgContainer;
 }
-async function initImages(queue) {
-    queue.getEach((img) => {
-        imageSettings.transition = true;
-        imageSettings.title = img.title;
-        socket.emit("image_request", img);
-    });
-}
-function fillImg(img) {
+function altImg(img) {
     let base64 = imageSettings.parts.join("");
     const container = findMessage(img._id);
+    const imgElement = container.find(".img-message")[0];
     if (!base64.startsWith("data:image"))
         base64 = "data:image/jpeg;base64," + base64;
-    container.find(".img-message")[0].src = base64;
+    imgElement.src = base64;
+    container.find(".download-container").hide();
+    $(imgElement).removeClass("inactive");
     imageSettings.reset();
 }
 function clearMsgHistory(clearFromDb = true) {
@@ -503,7 +521,7 @@ function getHour(timestamp) {
         ? new Date(timestamp).getMinutes() + "0"
         : new Date(timestamp).getMinutes()}`;
 }
-async function sendPhoto() {
+function sendPhoto() {
     const element = $("#photoInput");
     if (imageSettings.transition)
         setTimeout(() => {
@@ -540,6 +558,7 @@ async function sendPhoto() {
                 total += i.length;
             if (total !== base64?.length)
                 throw Error("Error in image separation");
+            // createImgMsg(currentImg, base64);
             base64 = null;
             total = null;
             socket.emit("image_data", currentImg);

@@ -28,7 +28,6 @@ export class ContextMenu {
 
     this.id = this.wrapElement.attr("ms_id");
     this.objectType = this.wrapElement.attr("object_type") as t.object_type;
-    console.log(this.objectType, this.wrapElement[0], this.target);
 
     switch (this.objectType) {
       case "text_message":

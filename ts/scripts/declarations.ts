@@ -53,11 +53,13 @@ export let imageSettings: {
     transition: boolean;
     parts: string[];
     title: string;
+    id: string;
     reset(): void;
   } = {
     transition: false,
     parts: [],
     title: null,
+    id: null,
     reset() {
       this.parts = [];
       this.title = null;

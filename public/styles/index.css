@@ -75,7 +75,7 @@ header #dropdown button:focus { border: 1px solid #333333; }
 .message-wrap .message { position: relative; display: flex; max-width: 50%; }
 @media screen and (max-width: 601px) { .message-wrap .message { max-width: 80%; }
   .message-wrap .message .content { max-width: 950%; } }
-.message-wrap .content { position: relative; display: inline-flex; max-width: 80%; right: 0; align-items: center; justify-content: center; margin: 5px 0 5px 10px; padding: 5px 10px; border-radius: 20px; border-top-left-radius: 0; word-break: normal; background-color: #8b9194; }
+.message-wrap .content { position: relative; display: inline-flex; max-width: 80%; right: 0; align-items: center; justify-content: center; margin: 5px 0 5px 10px; padding: 5px 10px; border-radius: 20px; border-top-left-radius: 0; word-break: normal; text-align: left; background-color: #8b9194; }
 .message-wrap .info-wrap { position: relative; display: flex; height: 25px; width: 69%; margin-left: 20px; justify-content: flex-start; align-items: center; }
 .message-wrap .info-wrap span { display: block; position: relative; font-size: 10px; max-height: 20px; top: 0; }
 .message-wrap .info-wrap .sender { margin-right: 10px; }
@@ -89,9 +89,8 @@ header #dropdown button:focus { border: 1px solid #333333; }
 .message-wrap.sent .img-message { right: 10px; }
 .message-wrap.sent .download-container { right: 10px; }
 .message-wrap.sent .content { background-color: #3498db; right: 5px; border-top-left-radius: 20px; border-bottom-right-radius: 0; margin-left: 0; }
-.message-wrap .img-message { position: relative; display: inline-block; width: 400px; height: 200px; border: none; outline: none; border-radius: 10px; }
+.message-wrap .img-message { position: relative; display: inline-block; width: 384px; border: none; outline: none; border-radius: 10px; }
 .message-wrap .img-message.inactive { display: none; }
-.message-wrap.image .message .content-img { width: 384px; height: 216px; }
 .message-wrap .download-container { position: relative; display: flex; top: 0; width: 30%; height: 15vw; justify-content: center; align-items: center; background-color: #3a434b; border-radius: 10px; margin: 0; }
 .message-wrap button.download-btn { border-radius: 50%; padding: 20px; border: none; background-color: #acb5be; }
 
