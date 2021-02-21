@@ -39,10 +39,13 @@ export let imageSettings = {
     parts: [],
     title: null,
     id: null,
+    element: null,
     reset() {
         this.parts = [];
         this.title = null;
         this.transition = false;
+        this.id = null;
+        // this.element = null;
     }
 }, elementsActive = {
     changeUserDropdown: false,

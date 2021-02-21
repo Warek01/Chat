@@ -1,4 +1,4 @@
-import { ContextMenu } from "./structures.js";
+import { ContextMenu, Queue } from "./structures.js";
 import { MessageTypes as t } from "../db_types";
 import { Socket } from "socket.io";
 
@@ -54,16 +54,20 @@ export let imageSettings: {
     parts: string[];
     title: string;
     id: string;
+    element: JQuery;
     reset(): void;
   } = {
     transition: false,
     parts: [],
     title: null,
     id: null,
+    element: null,
     reset() {
       this.parts = [];
       this.title = null;
       this.transition = false;
+      this.id = null;
+      // this.element = null;
     }
   },
   elementsActive: {

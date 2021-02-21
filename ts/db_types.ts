@@ -28,6 +28,7 @@ export namespace MessageTypes {
     timestamp: longInt;
     _id?: string;
     object_type?: object_type & "image";
+    __v?: int;
   }
 
   export interface Config {

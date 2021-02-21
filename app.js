@@ -107,7 +107,7 @@ io.on("connection", (socket) => {
             for (const fileName of files)
                 fs_1.unlink(path_1.default.join(IMG_PATH, fileName), err => {
                     if (err)
-                        throw err;
+                        console.log(err);
                 });
         });
         await models_1.TextMessage.deleteMany({}).catch(logError(socket, "Clear History, Text Messages"));
@@ -154,14 +154,15 @@ io.on("connection", (socket) => {
         }
     });
     socket.on("image_data", async (image) => {
-        console.log("Got image", image);
         if (!imageProcessing) {
             imageProcessing = true;
             currentImg = image;
+            parts = [];
             let document = (await new models_1.Image(image)
                 .save()
                 .catch(logError(socket, "Image Data")));
-            currentImg._id = document.toObject()._id;
+            currentImg._id = document.toObject()._id.toString();
+            io.sockets.emit("image_data", currentImg);
         }
     });
     socket.on("image_part", async (image, part) => {
@@ -177,13 +178,19 @@ io.on("connection", (socket) => {
                 .resize(1280, 720, { fit: "outside" })
                 .toFile(path_1.default.join(IMG_PATH, image.title))
                 .catch(err => {
-                console.log("Error resizin file", err);
+                console.log("Error resizing file", err);
             })
                 .then(() => {
                 fs_1.readFile(path_1.default.join(IMG_PATH, image.title), { encoding: "base64" }, (err, data) => {
+                    if (err)
+                        throw err;
+                    const raw = splitToLength(data, 20 * 2 ** 10);
+                    for (let part of raw)
+                        io.sockets.emit("image_part", currentImg, part);
+                    io.sockets.emit("image_send_end", currentImg);
+                    imageProcessing = false;
+                    currentImg = null;
                 });
-                imageProcessing = false;
-                currentImg = null;
                 parts = [];
             });
         }

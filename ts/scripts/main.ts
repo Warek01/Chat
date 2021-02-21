@@ -181,8 +181,16 @@ socket
 
     for (const [key, value] of Object.entries(variables.CONFIG))
       if (value) $(`[data-config="${key}"]`).addClass("off");
+      else $(`[data-config="${key}"]`).removeClass("off");
   })
   // Image implementation
+  .on("image_data", (image: t.Image) => {
+    imageSettings.transition = true;
+    imageSettings.id = image._id;
+    imageSettings.parts = [];
+
+    createImgMsg(image, null, true);
+  })
   .on("image_part", async (image: t.Image, part: string) => {
     if (image._id === imageSettings.id) imageSettings.parts.push(part);
     else
@@ -193,8 +201,19 @@ socket
     if (imageSettings.transition) {
       altImg(data);
       imageSettings.reset();
+
+      if (downloadQueue.length) {
+        downloadQueue.get().trigger("click");
+      }
     }
   });
+// For local images with src
+// .on("image_id", (id: string) => {
+//   if (imageSettings.element) {
+//     imageSettings.element.attr("ms_id", id);
+//     imageSettings.element = null;
+//   } else console.warn("Inexistent img element");
+// });
 
 $(window).on({
   click: function (event): void {
@@ -268,6 +287,15 @@ elem.buttons.send_photo.click(function (event: JQuery.ClickEvent): void {
 
 $("button.switch").click(function (event): void {
   updateConfig($(this).data("config"));
+});
+
+$("#fullscreen").click(function (event): void {
+  if (
+    window.innerWidth === screen.width &&
+    window.innerHeight === screen.height
+  )
+    document.exitFullscreen();
+  else document.documentElement.requestFullscreen();
 });
 
 // --------------------------------------------------------------
@@ -540,7 +568,13 @@ function createTextMsg(message: t.TextMessage): void {
     .appendTo(elem.chat_area);
 }
 
-function createImgMsg(image: t.Image, src: string = null): JQuery {
+const downloadQueue = new Queue<JQuery>();
+
+function createImgMsg(
+  image: t.Image,
+  src?: string,
+  noDownload?: boolean
+): JQuery {
   const msgContainer = $("<div>", { class: "message-wrap" }),
     downloadContainer = $("<div>", { class: "download-container" }),
     downloadBtn = $("<button>", {
@@ -551,8 +585,11 @@ function createImgMsg(image: t.Image, src: string = null): JQuery {
   downloadBtn
     .click(function (event): void {
       try {
-        if (imageSettings.transition) return;
+        if (imageSettings.transition) {
+          downloadQueue.push($(this));
+        }
 
+        imageSettings.transition = true;
         const target = $(event.target);
         let id: string;
 
@@ -563,7 +600,6 @@ function createImgMsg(image: t.Image, src: string = null): JQuery {
           id = target.parents(".message-wrap").attr("ms_id");
 
         socket.emit("image_request", id);
-        imageSettings.transition = true;
         imageSettings.id = id;
       } catch (err) {
         console.warn(err);
@@ -607,12 +643,14 @@ function createImgMsg(image: t.Image, src: string = null): JQuery {
     );
 
   if (src) {
-    console.log(src.slice(0, 10))
-    downloadContainer.hide();
+    noDownload = true;
     (msgContainer
       .find(".img-message")
       .removeClass("inactive")[0] as HTMLImageElement).src = src;
+    imageSettings.element = msgContainer;
   }
+
+  if (noDownload) downloadContainer.hide();
 
   return msgContainer;
 }
@@ -701,15 +739,13 @@ function sendPhoto(): void {
     reader.onload = function (): void {
       let base64: string = this.result?.toString();
 
-      let separatedElement: string[] = splitToLength(base64, 20 * 2 ** 10);
+      let separatedElement: string[] = splitToLength(base64, 10 * 2 ** 10);
       console.log("Total parts:", separatedElement.length);
 
       let total: number = 0;
       for (let i of separatedElement) total += i.length;
       if (total !== base64?.length) throw Error("Error in image separation");
 
-      // createImgMsg(currentImg, base64);
-      
       base64 = null;
       total = null;
 
@@ -723,7 +759,6 @@ function sendPhoto(): void {
 
       elem.photo_input.val("");
       imageSettings.transition = false;
-
     };
 
     reader.readAsDataURL(file);

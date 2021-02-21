@@ -100,7 +100,7 @@ io.on("connection", (socket: Socket): void => {
 
       for (const fileName of files)
         unlink(path.join(IMG_PATH, fileName), err => {
-          if (err) throw err;
+          if (err) console.log(err);
         });
     });
 
@@ -171,15 +171,17 @@ io.on("connection", (socket: Socket): void => {
   });
 
   socket.on("image_data", async (image: t.Image) => {
-    console.log("Got image", image);
     if (!imageProcessing) {
       imageProcessing = true;
       currentImg = image;
+      parts = [];
 
       let document = (await new Image(image)
         .save()
         .catch(logError(socket, "Image Data"))) as Document;
-      currentImg._id = document.toObject()._id;
+      currentImg._id = document.toObject()._id.toString();
+
+      io.sockets.emit("image_data", currentImg as t.Image);
     }
   });
 
@@ -196,18 +198,24 @@ io.on("connection", (socket: Socket): void => {
         .resize(1280, 720, { fit: "outside" })
         .toFile(path.join(IMG_PATH, image.title))
         .catch(err => {
-          console.log("Error resizin file", err);
+          console.log("Error resizing file", err);
         })
         .then(() => {
           readFile(
             path.join(IMG_PATH, image.title),
             { encoding: "base64" },
             (err: Error, data: string) => {
-              
+              if (err) throw err;
+              const raw: string[] = splitToLength(data, 20 * 2 ** 10);
+
+              for (let part of raw)
+                io.sockets.emit("image_part", currentImg, part);
+              io.sockets.emit("image_send_end", currentImg);
+
+              imageProcessing = false;
+              currentImg = null;
             }
           );
-          imageProcessing = false;
-          currentImg = null;
           parts = [];
         });
     }

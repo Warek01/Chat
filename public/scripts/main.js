@@ -160,8 +160,16 @@ socket
     for (const [key, value] of Object.entries(variables.CONFIG))
         if (value)
             $(`[data-config="${key}"]`).addClass("off");
+        else
+            $(`[data-config="${key}"]`).removeClass("off");
 })
     // Image implementation
+    .on("image_data", (image) => {
+    imageSettings.transition = true;
+    imageSettings.id = image._id;
+    imageSettings.parts = [];
+    createImgMsg(image, null, true);
+})
     .on("image_part", async (image, part) => {
     if (image._id === imageSettings.id)
         imageSettings.parts.push(part);
@@ -173,8 +181,18 @@ socket
     if (imageSettings.transition) {
         altImg(data);
         imageSettings.reset();
+        if (downloadQueue.length) {
+            downloadQueue.get().trigger("click");
+        }
     }
 });
+// For local images with src
+// .on("image_id", (id: string) => {
+//   if (imageSettings.element) {
+//     imageSettings.element.attr("ms_id", id);
+//     imageSettings.element = null;
+//   } else console.warn("Inexistent img element");
+// });
 $(window).on({
     click: function (event) {
         if (elementsActive.userContextMenu &&
@@ -229,6 +247,13 @@ elem.buttons.send_photo.click(function (event) {
 });
 $("button.switch").click(function (event) {
     updateConfig($(this).data("config"));
+});
+$("#fullscreen").click(function (event) {
+    if (window.innerWidth === screen.width &&
+        window.innerHeight === screen.height)
+        document.exitFullscreen();
+    else
+        document.documentElement.requestFullscreen();
 });
 // --------------------------------------------------------------
 // Functions
@@ -438,7 +463,8 @@ function createTextMsg(message) {
         .append(_message)
         .appendTo(elem.chat_area);
 }
-function createImgMsg(image, src = null) {
+const downloadQueue = new Queue();
+function createImgMsg(image, src, noDownload) {
     const msgContainer = $("<div>", { class: "message-wrap" }), downloadContainer = $("<div>", { class: "download-container" }), downloadBtn = $("<button>", {
         class: "download-btn",
         html: ""
@@ -446,15 +472,16 @@ function createImgMsg(image, src = null) {
     downloadBtn
         .click(function (event) {
         try {
-            if (imageSettings.transition)
-                return;
+            if (imageSettings.transition) {
+                downloadQueue.push($(this));
+            }
+            imageSettings.transition = true;
             const target = $(event.target);
             let id;
             if (target.parents(".message-wrap").attr("object_type") == "image" &&
                 target.parents(".message-wrap").attr("ms_id"))
                 id = target.parents(".message-wrap").attr("ms_id");
             socket.emit("image_request", id);
-            imageSettings.transition = true;
             imageSettings.id = id;
         }
         catch (err) {
@@ -479,12 +506,14 @@ function createImgMsg(image, src = null) {
     if (image.author !== variables.currentUser)
         msgContainer.append($("<div>", { class: "info-wrap", html: "" }).append($("<span>", { class: "sender", html: image.author }), $("<span>", { class: "date", html: getHour(image.timestamp) })));
     if (src) {
-        console.log(src.slice(0, 10));
-        downloadContainer.hide();
+        noDownload = true;
         msgContainer
             .find(".img-message")
             .removeClass("inactive")[0].src = src;
+        imageSettings.element = msgContainer;
     }
+    if (noDownload)
+        downloadContainer.hide();
     return msgContainer;
 }
 function altImg(img) {
@@ -551,14 +580,13 @@ function sendPhoto() {
         };
         reader.onload = function () {
             let base64 = this.result?.toString();
-            let separatedElement = splitToLength(base64, 20 * 2 ** 10);
+            let separatedElement = splitToLength(base64, 10 * 2 ** 10);
             console.log("Total parts:", separatedElement.length);
             let total = 0;
             for (let i of separatedElement)
                 total += i.length;
             if (total !== base64?.length)
                 throw Error("Error in image separation");
-            // createImgMsg(currentImg, base64);
             base64 = null;
             total = null;
             socket.emit("image_data", currentImg);

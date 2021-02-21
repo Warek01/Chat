@@ -220,10 +220,14 @@
   .img-message {
     position: relative;
     display: inline-block;
-    width: 192px * 2;
+    width: 25vw;
     border: none;
     outline: none;
     border-radius: 10px;
+
+    @media screen and (max-width: 1001px) {
+      width: 60vw;
+    }
 
     &.inactive {
       display: none;
@@ -241,13 +245,32 @@
     background-color: lighten(#24292e, 10);
     border-radius: 10px;
     margin: 0;
-  }
 
-  button.download-btn {
-    border-radius: 50%;
-    padding: 20px;
-    border: none;
-    background-color: lighten(#24292e, 55);
+    @media screen and (max-width: 1001px) {
+      width: 60vw;
+      height: 30vw;
+
+      button.download-btn {
+        width: 12.5vw;
+        height: 12.5vw;
+
+        img {
+          position: relative;
+          width: 7.5vw;
+          height: 7.5vw;
+        }
+      }
+    }
+
+    button.download-btn {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border-radius: 50%;
+      padding: 20px;
+      border: none;
+      background-color: lighten(#24292e, 55);
+    }
   }
 }
 
