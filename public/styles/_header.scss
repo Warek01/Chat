@@ -6,6 +6,10 @@ header {
   justify-content: space-between;
   z-index: 1;
 
+  @media screen and (max-width: 1001px) {
+    border-bottom: 1px solid #fff;
+  }
+
   .logo {
     position: relative;
     display: flex;

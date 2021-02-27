@@ -33,6 +33,7 @@ button:focus { outline: none; }
 #photoInput { width: 0; height: 0; filter: opacity(0); }
 
 header { position: relative; display: flex; width: 100%; height: 60px; justify-content: space-between; z-index: 1; }
+@media screen and (max-width: 1001px) { header { border-bottom: 1px solid #fff; } }
 header .logo { position: relative; display: flex; height: 100%; align-items: center; justify-content: center; margin-left: 30px; }
 header .logo p { font-size: 2.2em; margin: 0; }
 header .user { position: relative; display: flex; height: 100%; align-items: center; margin-right: 30px; }
@@ -58,8 +59,8 @@ header #dropdown button:focus { border: 1px solid #333333; }
 #chat-wrapper { position: absolute; display: flex; z-index: -1; justify-content: center; align-items: center; width: 100%; height: calc(100% - 60px); top: 60px; /* Width */ /* Track */ /* Handle */ }
 #chat-wrapper .chat-window { position: relative; display: block; height: 85vh; width: 80vw; border-radius: 10px; }
 @media screen and (max-width: 1501px) { #chat-wrapper .chat-window { width: 90vw; height: 92.5%; } }
-@media screen and (max-width: 1001px) { #chat-wrapper .chat-window { width: 100vw; height: 100%; } }
-#chat-wrapper #chat-area { position: relative; display: block; width: 95%; height: 84%; margin: 1% auto 5px auto; overflow-y: auto; }
+@media screen and (max-width: 1001px) { #chat-wrapper .chat-window { width: 100vw; height: 100%; border-radius: 0; } }
+#chat-wrapper #chat-area { position: relative; display: block; width: 97.5%; height: 84%; margin: 1% auto 5px auto; overflow-y: auto; }
 #chat-wrapper #chat-area * { transition: all 0.3s ease; }
 #chat-wrapper ::-webkit-scrollbar { width: 8px; }
 #chat-wrapper ::-webkit-scrollbar-track { background: #f1f1f1; box-shadow: inset 0 0 4px #24292e; border-radius: 6px; }
@@ -71,12 +72,12 @@ header #dropdown button:focus { border: 1px solid #333333; }
 #chat-wrapper #sendBtn { margin-left: 10px; height: 30px; }
 #chat-wrapper #photoBtn { margin-left: 5px; height: 30px; }
 
-.message-wrap { position: relative; display: flex; align-items: flex-end; min-height: 35px; height: auto; width: 100%; margin-top: 10px; }
+.message-wrap { position: relative; display: flex; min-height: 20px; width: 100%; }
 .message-wrap .message { position: relative; display: flex; max-width: 50%; }
 @media screen and (max-width: 601px) { .message-wrap .message { max-width: 80%; }
   .message-wrap .message .content { max-width: 950%; } }
-.message-wrap .content { position: relative; display: inline-flex; max-width: 80%; right: 0; align-items: center; justify-content: center; margin: 5px 0 5px 10px; padding: 5px 10px; border-radius: 20px; border-top-left-radius: 0; word-break: normal; text-align: left; background-color: #8b9194; }
-.message-wrap .info-wrap { position: relative; display: flex; height: 25px; width: 69%; margin-left: 20px; justify-content: flex-start; align-items: center; }
+.message-wrap .content { position: relative; display: inline-flex; max-width: 80%; right: 0; align-items: center; justify-content: center; margin: 2px 0 2px 10px; padding: 5px 10px; border-radius: 20px; border-top-left-radius: 0; word-break: normal; text-align: left; background-color: #8b9194; }
+.message-wrap .info-wrap { position: relative; display: flex; height: 20px; width: 69%; margin-left: 20px; align-self: flex-end; justify-content: flex-start; align-items: center; }
 .message-wrap .info-wrap span { display: block; position: relative; font-size: 10px; max-height: 20px; top: 0; }
 .message-wrap .info-wrap .sender { margin-right: 10px; }
 .message-wrap .info-wrap .date::before { content: ""; position: absolute; display: block; height: 15px; width: 1px; top: -2px; left: -5px; background-color: #e1b12c; }
@@ -89,6 +90,7 @@ header #dropdown button:focus { border: 1px solid #333333; }
 .message-wrap.sent .img-message { right: 10px; }
 .message-wrap.sent .download-container { right: 10px; }
 .message-wrap.sent .content { background-color: #3498db; right: 5px; border-top-left-radius: 20px; border-bottom-right-radius: 0; margin-left: 0; }
+.message-wrap[object_type="image"] { margin-top: 10px; }
 .message-wrap .img-message { position: relative; display: inline-block; width: 25vw; border: none; outline: none; border-radius: 10px; }
 @media screen and (max-width: 1001px) { .message-wrap .img-message { width: 60vw; } }
 .message-wrap .img-message.inactive { display: none; }

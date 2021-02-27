@@ -1,34 +1,93 @@
-import { MessageTypes as t, base64 } from "../db_types";
-import { ContextMenu, Queue, Stack } from "./structures.js";
-import {
-  global,
-  APP_TITLE,
-  elements as elem,
-  elementsActive,
-  variables,
-  imageSettings,
-  socket
-} from "./declarations.js";
+import { MessageTypes as t, int, Socket } from "../db_types";
+
+const global: any = window;
+const APP_TITLE = "Chat app";
+
+const login_form = $("#login-wrapper"),
+  login_input = $("#username"),
+  chat_form = $("#chat-wrapper"),
+  chat_input = $("#chat-input"),
+  chat_area = $("#chat-area"),
+  dropdown = $("#dropdown"),
+  user_field = $("#user"),
+  settings_window = $("#settings-window"),
+  photo_input = $("#photoInput"),
+  edit_user_btn = $("#edit-user"),
+  send_photo_btn = $("#photoBtn"),
+  send_text_btn = $("#sendBtn"),
+  clear_history_btn = $("#clear-history"),
+  change_username_btn = $("#change-username"),
+  clear_logs_btn = $("#clear-connection-logs"),
+  logout_btn = $("#change-username"),
+  settings_window_btn = $("#toggle-settings-window"),
+  connection_logs_switch = $("#switch-connection-logs"),
+  close_settings_menu = $("#close-settings-window");
+
+let currentUser: string = null,
+  previousUser: string = null,
+  contextMenu: ContextMenu = null,
+  lostFocus: boolean = false,
+  nrOfNotifications: number = 0,
+  CONFIG: t.Config = {
+    noConnectionLogs: false,
+    noNotifications: false
+  };
+
+let imageSettings: {
+    transition: boolean;
+    parts: string[];
+    title: string;
+    id: string;
+    element: JQuery;
+    reset(): void;
+  } = {
+    transition: false,
+    parts: [],
+    title: null,
+    id: null,
+    element: null,
+    reset() {
+      this.parts = [];
+      this.title = null;
+      this.transition = false;
+      this.id = null;
+      // this.element = null;
+    }
+  },
+  elementsActive: {
+    changeUserDropdown: boolean;
+    settingsWindow: boolean;
+    userContextMenu: boolean;
+  } = {
+    changeUserDropdown: false,
+    settingsWindow: false,
+    userContextMenu: false
+  };
+
+declare const io: Function;
+const socket: Socket = io();
+
+let downloadQueue: Queue<JQuery> | null = null;
 
 $(document).ready(function (event): void {
   if (document.cookie.match(/username/)) {
-    variables.currentUser = decodeURIComponent(
+    currentUser = decodeURIComponent(
       (document.cookie.match(/(?<=username=)\w+/) || [""])[0]
     );
 
-    elem.user_field.text(variables.currentUser);
+    user_field.text(currentUser);
     init();
-    elem.buttons.edit_user.css("pointer-events", "all");
+    edit_user_btn.css("pointer-events", "all");
 
     socket.emit("connect_log", {
       type: "connect",
-      author: variables.currentUser,
+      author: currentUser,
       timestamp: Date.now()
     } as t.ConnectionLog);
   } else {
     $("#login").click(login);
-    elem.login_form.css("display", "flex");
-    elem.chat_form.hide();
+    login_form.css("display", "flex");
+    chat_form.hide();
     validatePreviousUserBtn();
   }
 });
@@ -42,37 +101,37 @@ fetch("/config", {
 })
   .then(res => res.json())
   .then(res => {
-    variables.CONFIG = res;
+    CONFIG = res;
     (window as any).CONFIG = res;
 
-    for (const [key, value] of Object.entries(variables.CONFIG))
+    for (const [key, value] of Object.entries(CONFIG))
       if (value) $(`[data-config="${key}"]`).addClass("off");
   })
   .catch((err: Error) => {
     console.warn("Config error", err);
   });
 
-elem.photo_input.change(sendPhoto);
-elem.buttons.send_text.click(sendMessage);
-elem.buttons.change_username.click(logout);
+photo_input.change(sendPhoto);
+send_text_btn.click(sendMessage);
+change_username_btn.click(logout);
 
-elem.buttons.clear_history.click(e => {
+clear_history_btn.click(e => {
   clearMsgHistory(true);
 });
 
-elem.buttons.clear_logs.click(e => {
+clear_logs_btn.click(e => {
   clearAllLogs(true);
 });
 
-elem.buttons.edit_user.click(function (event): void {
+edit_user_btn.click(function (event): void {
   if (!elementsActive.changeUserDropdown) {
-    elem.dropdown.show();
+    dropdown.show();
     $("body").children().not("header").css({
       "pointer-events": "none",
       filter: "blur(2px)"
     });
   } else {
-    elem.dropdown.hide();
+    dropdown.hide();
     $("body").children().not("header").css({
       "pointer-events": "all",
       filter: "blur(0)"
@@ -81,30 +140,30 @@ elem.buttons.edit_user.click(function (event): void {
   elementsActive.changeUserDropdown = !elementsActive.changeUserDropdown;
 });
 
-elem.buttons.settings_window.click(function (event): void {
+settings_window_btn.click(function (event): void {
   if (elementsActive.settingsWindow === false) {
-    elem.dropdown.hide();
-    elem.settings_window.show().trigger("click");
-    elem.buttons.edit_user.css("pointer-events", "none");
+    dropdown.hide();
+    settings_window.show().trigger("click");
+    edit_user_btn.css("pointer-events", "none");
     elementsActive.settingsWindow = true;
   }
 });
 
-elem.buttons.close_settings_menu.click(function (event): void {
-  elem.settings_window.hide();
+close_settings_menu.click(function (event): void {
+  settings_window.hide();
   elementsActive.settingsWindow = false;
-  elem.buttons.edit_user.css("pointer-events", "all");
+  edit_user_btn.css("pointer-events", "all");
 });
 
-elem.buttons.clear_history.click(function (event): void {
+clear_history_btn.click(function (event): void {
   socket.emit("clear_history");
 });
 
-elem.buttons.clear_logs.click(function (event): void {
+clear_logs_btn.click(function (event): void {
   socket.emit("clear_logs");
 });
 
-elem.login_input.keypress(function (event): void {
+login_input.keypress(function (event): void {
   switch (event.key) {
     case "Enter":
       if ($(this).val()!.toString().trim() !== "") login();
@@ -112,9 +171,9 @@ elem.login_input.keypress(function (event): void {
   }
 });
 
-elem.chat_input.keypress(function (event): void {
+chat_input.keypress(function (event): void {
   if (event.key === "Enter")
-    if (event.shiftKey) elem.chat_input.val(elem.chat_input.val() + "\n");
+    if (event.shiftKey) chat_input.val(chat_input.val() + "\n");
     // Nu lucreaza \n la input
     else $("#sendBtn").trigger("click");
 });
@@ -123,12 +182,12 @@ elem.chat_input.keypress(function (event): void {
 socket
   .on("text_message", (message: t.TextMessage): void => {
     createTextMsg(message);
-    if (variables.lostFocus && !variables.CONFIG.noNotifications) {
-      variables.nrOfNotifications++;
+    if (lostFocus && !CONFIG.noNotifications) {
+      nrOfNotifications++;
       notification(
-        variables.nrOfNotifications === 1
+        nrOfNotifications === 1
           ? `New message (${message.author})`
-          : `${variables.nrOfNotifications} new messages`
+          : `${nrOfNotifications} new messages`
       );
     }
   })
@@ -176,10 +235,10 @@ socket
       .remove();
   })
   .on("config_update", (config: t.Config) => {
-    variables.CONFIG = config;
+    CONFIG = config;
     (window as any).CONFIG = config;
 
-    for (const [key, value] of Object.entries(variables.CONFIG))
+    for (const [key, value] of Object.entries(CONFIG))
       if (value) $(`[data-config="${key}"]`).addClass("off");
       else $(`[data-config="${key}"]`).removeClass("off");
   })
@@ -221,17 +280,17 @@ $(window).on({
       elementsActive.userContextMenu &&
       !$(event.target).hasClass("context-menu")
     ) {
-      variables.contextMenu?.disable();
+      contextMenu?.disable();
       return;
     }
 
     if (
       elementsActive.settingsWindow &&
       !elementsActive.userContextMenu &&
-      $(event.target).attr("id") !== elem.settings_window.attr("id") &&
-      $(event.target).attr("id") !== elem.buttons.settings_window.attr("id")
+      $(event.target).attr("id") !== settings_window.attr("id") &&
+      $(event.target).attr("id") !== settings_window.attr("id")
     )
-      elem.buttons.settings_window.trigger("click");
+      settings_window.trigger("click");
 
     if (
       elementsActive.changeUserDropdown &&
@@ -241,36 +300,36 @@ $(window).on({
       $(event.target).attr("id") !== "edit-user" &&
       $(event.target).parent().attr("id") !== "edit-user"
     )
-      elem.buttons.edit_user.trigger("click");
+      edit_user_btn.trigger("click");
   },
 
   contextmenu: function (event): void {
-    variables.contextMenu?.disable();
+    contextMenu?.disable();
     if (
       ($(event.target).hasClass("message-wrap") ||
         $(event.target).parents().hasClass("message-wrap")) &&
       !event.shiftKey
     ) {
       event.preventDefault();
-      variables.contextMenu = new ContextMenu(event);
+      contextMenu = new ContextMenu(event);
     }
   },
 
   unload: function (event): void {
     socket.emit("connect_log", {
       type: "disconnect",
-      author: variables.currentUser,
+      author: currentUser,
       timestamp: Date.now()
     } as t.ConnectionLog);
   },
 
   // Blur & focus doesn't shoot when devtools are active
   blur: function (event): void {
-    variables.lostFocus = true;
+    lostFocus = true;
   },
 
   focus: function (event): void {
-    variables.lostFocus = false;
+    lostFocus = false;
 
     if (global.NT_TMOUT) {
       clearTimeout(global.NT_TMOUT);
@@ -281,7 +340,7 @@ $(window).on({
   }
 });
 
-elem.buttons.send_photo.click(function (event: JQuery.ClickEvent): void {
+send_photo_btn.click(function (event: JQuery.ClickEvent): void {
   $("#photoInput").trigger("click");
 });
 
@@ -325,7 +384,7 @@ function notification(message: string): void {
 }
 
 function updateConfig(data: string) {
-  if (data in variables.CONFIG)
+  if (data in CONFIG)
     fetch("/config", {
       method: "POST",
       headers: {
@@ -354,50 +413,50 @@ function setCookie(key: string, value: string): string {
 }
 
 function login(): void {
-  if ((elem.login_input.val() as string).trim() !== "") {
-    variables.currentUser = elem.login_input.val() as string;
-    elem.user_field.text(variables.currentUser);
-    setCookie("username", variables.currentUser);
+  if ((login_input.val() as string).trim() !== "") {
+    currentUser = login_input.val() as string;
+    user_field.text(currentUser);
+    setCookie("username", currentUser);
     init();
 
-    elem.login_input.val("");
+    login_input.val("");
 
-    elem.login_form.hide();
-    elem.chat_form.show();
-    elem.buttons.edit_user.css("pointer-events", "all");
+    login_form.hide();
+    chat_form.show();
+    edit_user_btn.css("pointer-events", "all");
     $("#login").off("click", login);
   }
   for (let message of $(".message"))
-    if ($(message).find(".sender").text() === variables.currentUser)
+    if ($(message).find(".sender").text() === currentUser)
       $(message).addClass("sent").find(".sender").prependTo(message);
 
   socket.emit("connect_log", {
     type: "connect",
-    author: variables.currentUser
+    author: currentUser
   } as t.ConnectionLog);
 }
 
 function logout(): void {
-  console.assert(variables.currentUser !== null, "User in null");
+  console.assert(currentUser !== null, "User in null");
 
   socket.emit("connect_log", {
     type: "disconnect",
-    author: variables.currentUser,
+    author: currentUser,
     timestamp: Date.now()
   } as t.ConnectionLog);
 
-  variables.previousUser = variables.currentUser;
-  variables.currentUser = null;
-  setCookie("previousUser", variables.previousUser as string);
+  previousUser = currentUser;
+  currentUser = null;
+  setCookie("previousUser", previousUser as string);
   removeCookie("username");
   validatePreviousUserBtn();
 
-  elem.chat_form.hide();
-  elem.login_form.css("display", "flex");
+  chat_form.hide();
+  login_form.css("display", "flex");
   $("#login").click(login);
 
-  elem.buttons.edit_user.css("pointer-events", "none");
-  elem.dropdown.hide();
+  edit_user_btn.css("pointer-events", "none");
+  dropdown.hide();
   $("body").children().not("header").css({
     "pointer-events": "all",
     filter: "blur(0)"
@@ -410,14 +469,14 @@ function logout(): void {
 }
 
 function sendMessage(): void {
-  if (elem.chat_input.val()!.toString().trim() !== "") {
+  if (chat_input.val()!.toString().trim() !== "") {
     const body: t.TextMessage = {
-      content: elem.chat_input.val() as string,
-      author: variables.currentUser as string,
+      content: chat_input.val() as string,
+      author: currentUser as string,
       timestamp: Date.now() as number
     };
 
-    elem.chat_input.val("");
+    chat_input.val("");
 
     socket.emit("text_message", body);
   }
@@ -470,16 +529,16 @@ function findMessage(id: string): JQuery | null {
 
 function validatePreviousUserBtn(): void {
   if (document.cookie.match(/previousUser/)) {
-    variables.previousUser = decodeURIComponent(
+    previousUser = decodeURIComponent(
       (document.cookie.match(/(?<=previousUser=)\w+/) || [""])[0]
     );
 
     $(".last-user").show();
     $("#last-user-name")
       .css("display", "block")
-      .text(variables.previousUser)
+      .text(previousUser)
       .click(function (event) {
-        elem.login_input.val(variables.previousUser as string);
+        login_input.val(previousUser as string);
         login();
       });
   } else $(".last-user").hide();
@@ -513,7 +572,7 @@ function createConnectionLog(obj: t.ConnectionLog): void {
   container
     .append(content)
     .attr("object_type", obj.object_type)
-    .appendTo(elem.chat_area);
+    .appendTo(chat_area);
 }
 
 function createTextMsg(message: t.TextMessage): void {
@@ -533,7 +592,7 @@ function createTextMsg(message: t.TextMessage): void {
       class: "date"
     });
 
-  if (message.author === variables.currentUser)
+  if (message.author === currentUser)
     _message.append(
       $("<div>", { class: "info-wrap", html: "" }).append(sender, date),
       content
@@ -553,7 +612,7 @@ function createTextMsg(message: t.TextMessage): void {
     container.css("margin-bottom", 20).append(editContainer);
   }
 
-  if (message.author === variables.currentUser) container.addClass("sent");
+  if (message.author === currentUser) container.addClass("sent");
 
   for (let em of content.text().split(" "))
     if (em.length > 80) {
@@ -565,10 +624,8 @@ function createTextMsg(message: t.TextMessage): void {
     .attr("ms_id", message._id as string)
     .attr("object_type", message.object_type)
     .append(_message)
-    .appendTo(elem.chat_area);
+    .appendTo(chat_area);
 }
-
-const downloadQueue = new Queue<JQuery>();
 
 function createImgMsg(
   image: t.Image,
@@ -585,6 +642,7 @@ function createImgMsg(
   downloadBtn
     .click(function (event): void {
       try {
+        if (!downloadQueue) downloadQueue = new Queue<JQuery>();
         if (imageSettings.transition) {
           downloadQueue.push($(this));
         }
@@ -614,7 +672,7 @@ function createImgMsg(
       })
     );
 
-  if (image.author === variables.currentUser)
+  if (image.author === currentUser)
     msgContainer
       .addClass("sent")
       .append(
@@ -632,9 +690,9 @@ function createImgMsg(
 
       downloadContainer.append(downloadBtn)
     )
-    .appendTo(elem.chat_area);
+    .appendTo(chat_area);
 
-  if (image.author !== variables.currentUser)
+  if (image.author !== currentUser)
     msgContainer.append(
       $("<div>", { class: "info-wrap", html: "" }).append(
         $("<span>", { class: "sender", html: image.author }),
@@ -664,6 +722,7 @@ function altImg(img: t.Image): void {
     base64 = "data:image/jpeg;base64," + base64;
 
   imgElement.src = base64;
+  $(imgElement).attr("ready", "");
 
   container.find(".download-container").hide();
   $(imgElement).removeClass("inactive");
@@ -681,7 +740,7 @@ function clearMsgHistory(clearFromDb: boolean = true): void {
     socket.emit("clear_history");
   }
 
-  elem.chat_area.children().remove();
+  chat_area.children().remove();
 }
 
 function removeEditMarks(): void {
@@ -715,7 +774,7 @@ function sendPhoto(): void {
     const reader = new FileReader();
 
     const currentImg: t.Image = {
-      author: variables.currentUser,
+      author: currentUser,
       timestamp: Date.now(),
       title: file.name
     };
@@ -757,11 +816,312 @@ function sendPhoto(): void {
 
       socket.emit("image_send_end", currentImg);
 
-      elem.photo_input.val("");
+      photo_input.val("");
       imageSettings.transition = false;
     };
 
     reader.readAsDataURL(file);
+  }
+}
+
+// ---------------------------------------------
+// Classes
+
+class ContextMenu {
+  private id: string;
+  private menuElement: JQuery;
+  private selectedElement: JQuery;
+  private wrapElement: JQuery;
+  private target: JQuery;
+  private objectType: t.object_type;
+  private contentElement: JQuery = null;
+
+  constructor(event: JQuery.ContextMenuEvent | JQuery.ClickEvent) {
+    this.disableScrolling();
+
+    this.target = $(event.target);
+
+    if (this.target.hasClass("message")) this.selectedElement = $(event.target);
+    else this.selectedElement = $(event.target).parents(".message");
+    this.contentElement = this.selectedElement.find(".content");
+
+    elementsActive.userContextMenu = true;
+
+    this.menuElement = $("<div>", { class: "context-menu" });
+    this.wrapElement = this.target.hasClass("message-wrap")
+      ? this.target
+      : this.target.parents(".message-wrap");
+
+    this.id = this.wrapElement.attr("ms_id");
+    this.objectType = this.wrapElement.attr("object_type") as t.object_type;
+
+    const copyBtn = $("<span>", { html: "Copy", class: "button-disabled" }),
+      openLinkBtn = $("<span>", {
+        html: "Open link here",
+        class: "button-disabled"
+      }),
+      openLinkNewTabBtn = $("<span>", {
+        html: "Open link in new tab",
+        class: "button-disabled"
+      }),
+      editBtn = $("<span>", {
+        html: "Edit",
+        class: "button-disabled"
+      }),
+      deleteBtn = $("<span>", {
+        html: "Delete",
+        class: "button-disabled"
+      }),
+      downloadBtn = $("<a>", {
+        html: "Download",
+        class: "button-disabled",
+        href: (this.wrapElement.find(".img-message")[0] as any)?.src,
+        download: "image"
+      });
+
+    copyBtn.click(e => {
+      this.copyText();
+    });
+
+    openLinkBtn.click(e => {
+      this.openLink();
+    });
+
+    openLinkNewTabBtn.click(e => {
+      this.openLinkNewTab();
+    });
+
+    editBtn.click(e => {
+      this.edit();
+    });
+
+    deleteBtn.click(e => {
+      this.delete();
+    });
+
+    this.menuElement.append(
+      copyBtn,
+      openLinkBtn,
+      openLinkNewTabBtn,
+      editBtn,
+      deleteBtn,
+      downloadBtn
+    );
+
+    this.menuElement
+      .css({
+        top: (this.wrapElement.offset()?.top as number) - 35,
+        left: this.contentElement.offset()?.left as number
+      })
+      .appendTo($("body"));
+
+    if (this.menuElement.width()! + 90 >= this.selectedElement.width()!)
+      this.menuElement.css({
+        left:
+          (this.contentElement.offset()?.left as number) -
+          (this.menuElement.width()! + 40)
+      });
+
+    if (this.wrapElement.hasClass("sent")) {
+      this.menuElement.addClass("right-side");
+      deleteBtn.removeClass("button-disabled");
+    }
+
+    switch (this.objectType) {
+      case "text_message":
+        copyBtn.removeClass("button-disabled");
+
+        if (event.target.tagName === "A") {
+          openLinkBtn.removeClass("button-disabled");
+          openLinkNewTabBtn.removeClass("button-disabled");
+        }
+
+        if (this.wrapElement.hasClass("sent")) {
+          editBtn.removeClass("button-disabled");
+        }
+
+        break;
+
+      case "image":
+        if ($(this.wrapElement).find(".img-message").attr("ready") != null)
+          downloadBtn.removeClass("button-disabled");
+        break;
+    }
+  }
+
+  copyText(): void {
+    let tempElement = $("<input>");
+    $("body").append(tempElement);
+    tempElement.val(this.contentElement.text()).trigger("select");
+    document.execCommand("copy");
+    tempElement.remove();
+  }
+
+  delete(): void {
+    socket.emit(
+      this.objectType === "text_message"
+        ? "delete_text_message"
+        : "delete_image",
+      this.id
+    );
+  }
+
+  openLink(): void {
+    location.assign(this.target[0].textContent as string);
+  }
+
+  openLinkNewTab(): void {
+    window.open(this.target[0].textContent as string);
+  }
+
+  edit(): void {
+    let initilaText: string = this.contentElement.text(),
+      initialHtml: string = this.contentElement.html();
+    this.contentElement.attr("contenteditable", "true").trigger("focus");
+
+    const endEdit = () => {
+      if (
+        this.contentElement.text().trim() != "" &&
+        initilaText !== this.contentElement.text()
+      )
+        socket.emit("message_edit", this.id, this.contentElement.text());
+      else this.contentElement.html(initialHtml);
+
+      this.contentElement.attr("contenteditable", "false");
+      this.contentElement.off("focusout", endEdit);
+    };
+
+    this.contentElement.focusout(endEdit);
+  }
+
+  disable(): void {
+    elementsActive.userContextMenu = false;
+    this.menuElement.remove();
+    this.enableScrolling();
+  }
+
+  private disableScrolling(): void {
+    let x = chat_area[0].scrollLeft,
+      y = chat_area[0].scrollTop;
+
+    chat_area[0].onscroll = function () {
+      chat_area[0].scrollTo(x, y);
+    };
+  }
+
+  private enableScrolling(): void {
+    chat_area[0].onscroll = function () {};
+  }
+}
+
+// ---------- Stack ----------
+class Stack<Type> {
+  private data: Type[] = [];
+  private firstElement: Type = null;
+  private lastElement: Type = null;
+
+  constructor() {}
+
+  /** Add an element to the stack */
+  push(obj: Type): Stack<Type> {
+    if (this.data.length === 0 && !this.firstElement && !this.lastElement) {
+      this.firstElement = obj;
+      this.lastElement = obj;
+    } else {
+      this.lastElement = obj;
+    }
+    this.data.push(obj);
+    return this;
+  }
+
+  /** Remove first element */
+  pop(): Stack<Type> {
+    if (this.lastElement === this.firstElement && this.data.length === 1) {
+      this.firstElement = null;
+      this.lastElement = null;
+    } else if (this.data.length > 2) {
+      this.firstElement = this.data[1];
+    } else if (this.data.length === 2) {
+      this.firstElement = this.lastElement;
+    }
+
+    this.data.pop();
+    return this;
+  }
+
+  /** Get first element of the stack then delete it */
+  get(): Type {
+    if (this.data.length > 0) {
+      if (this.data.length === 1) {
+        this.lastElement = null;
+        this.firstElement = null;
+      } else if (this.data.length === 2) this.firstElement = this.lastElement;
+      else this.firstElement = this.data[1];
+
+      return this.data.shift();
+    }
+  }
+
+  /** Empty stack */
+  empty(): Stack<Type> {
+    this.data = [];
+    this.firstElement = null;
+    this.lastElement = null;
+    return this;
+  }
+
+  /** Stack length */
+  get length(): int {
+    return this.data.length;
+  }
+}
+
+// ---------- Queue ----------
+class Queue<Type> {
+  private data: Type[] = [];
+
+  constructor() {}
+
+  /** Push an element to the queue */
+  push(element: Type | Type[]): Queue<Type> {
+    if (Array.isArray(element) && element.length > 0)
+      for (let em of element) this.data.push(em);
+    else this.data.push(element as Type);
+
+    return this;
+  }
+
+  /** Get the first element of the queue and remove it */
+  get(): Type | null {
+    if (this.data.length > 0) return this.data.shift();
+    else return null;
+  }
+
+  isEmpty(): boolean {
+    return this.data.length === 0;
+  }
+
+  /** Empty queue */
+  empty(): Queue<Type> {
+    if (this.data.length > 0) this.data = [];
+
+    return this;
+  }
+
+  getEach(operation: (element: Type) => void): Queue<Type> {
+    while (this.length) operation(this.get());
+
+    return this;
+  }
+
+  forEach(operation: (element: Type) => void): Queue<Type> {
+    this.data.forEach(operation);
+    return this;
+  }
+
+  /** Queue length */
+  get length(): int {
+    return this.data.length;
   }
 }
 
@@ -773,8 +1133,7 @@ global.clearMsgHistory = clearMsgHistory;
 global.clearAllLogs = clearAllLogs;
 
 global.SOCKET = socket;
-global.ELEMENTS = elem;
-global.CONFIG = variables.CONFIG;
+global.CONFIG = CONFIG;
 
 global.Queue = Queue;
 global.Stack = Stack;
