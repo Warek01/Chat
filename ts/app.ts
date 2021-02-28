@@ -9,7 +9,7 @@ import path from "path";
 import { TextMessage, ConnectionLog, Image, Config } from "./models";
 import { Socket, Server } from "socket.io";
 import { readFile, readdir, unlink, existsSync as exists } from "fs";
-import { MessageTypes as t } from "./db_types";
+import { MessageTypes as t } from "./Types";
 import sharp from "sharp";
 import * as base64ToArrBuf from "base64-arraybuffer";
 import optimist from "optimist";
@@ -219,6 +219,19 @@ io.on("connection", (socket: Socket): void => {
           parts = [];
         });
     }
+  });
+
+  socket.on("delete_image", async (id: string) => {
+    const title = await (await Image.findById(id)).toObject().title;
+    console.log(title);
+
+    if (exists(path.join(IMG_PATH, title)))
+      unlink(path.join(IMG_PATH, title), (err: Error) => {
+        console.log(err);
+      });
+
+    io.sockets.emit("delete_image", id);
+    Image.deleteOne({ _id: id });
   });
 });
 

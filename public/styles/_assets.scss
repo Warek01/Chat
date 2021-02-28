@@ -20,15 +20,15 @@ button {
   border-radius: 6px;
   padding: 5px 16px;
   cursor: pointer;
-  
+
   &.light {
     background-color: #ececec;
-    border-color: rgba(#333, .1);
+    border-color: rgba(#333, 0.1);
     box-shadow: 1px 1px 2px rgba(#aaa, 1);
   }
 
   &.dark {
-    border: 1px solid rgba(#666, .5);
+    border: 1px solid rgba(#666, 0.5);
     background-color: $main-black;
     box-shadow: none;
 
@@ -45,7 +45,7 @@ button {
 .text-button {
   display: inline-block;
   border: none;
-  background-color: transparent;    
+  background-color: transparent;
   cursor: pointer;
 
   &:hover {
@@ -57,9 +57,9 @@ button {
   position: absolute;
   display: flex;
   width: auto;
-  padding: 2px 30px;
   height: 30px;
   border-radius: 5px;
+  padding: 0 10px;
   align-items: center;
   background-color: #b2bec3;
   font-size: 10px;
@@ -89,24 +89,25 @@ button {
     background-color: #b2bec3;
   }
 
-  span {
+  span,
+  a {
     position: relative;
     display: inline-flex;
-
-    &:not(:first-of-type) {
-      margin-left: 15px;
-    }
+    justify-content: center;
+    align-items: center;
+    padding: 2px 5px;
+    color: #333;
+    text-decoration: none;
 
     &:not(.button-disabled) {
       cursor: pointer;
-  
+
       &:hover {
         text-decoration: underline;
         z-index: 100;
       }
     }
   }
-  
 
   .button-disabled {
     display: none;

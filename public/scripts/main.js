@@ -210,6 +210,11 @@ socket
             downloadQueue.get().trigger("click");
         }
     }
+})
+    .on("delete_image", (id) => {
+    const img = findMessage(id);
+    console.log(img);
+    img.remove();
 });
 // For local images with src
 // .on("image_id", (id: string) => {
@@ -633,19 +638,20 @@ class ContextMenu {
     constructor(event) {
         this.contentElement = null;
         this.disableScrolling();
-        this.target = $(event.target);
-        if (this.target.hasClass("message"))
-            this.selectedElement = $(event.target);
-        else
-            this.selectedElement = $(event.target).parents(".message");
-        this.contentElement = this.selectedElement.find(".content");
         elementsActive.userContextMenu = true;
+        this.target = $(event.target);
         this.menuElement = $("<div>", { class: "context-menu" });
         this.wrapElement = this.target.hasClass("message-wrap")
             ? this.target
             : this.target.parents(".message-wrap");
-        this.id = this.wrapElement.attr("ms_id");
         this.objectType = this.wrapElement.attr("object_type");
+        this.id = this.wrapElement.attr("ms_id");
+        this.selectedElement = this.wrapElement.find(this.objectType === "text_message"
+            ? ".message"
+            : this.wrapElement.find(".img-message").attr("ready") != null
+                ? ".img-message"
+                : ".download-container");
+        this.contentElement = this.selectedElement.find(".content");
         const copyBtn = $("<span>", { html: "Copy", class: "button-disabled" }), openLinkBtn = $("<span>", {
             html: "Open link here",
             class: "button-disabled"
@@ -663,6 +669,9 @@ class ContextMenu {
             class: "button-disabled",
             href: this.wrapElement.find(".img-message")[0]?.src,
             download: "image"
+        }), getImageBtn = $("<span>", {
+            html: "Get",
+            class: "button-disabled"
         });
         copyBtn.click(e => {
             this.copyText();
@@ -679,21 +688,25 @@ class ContextMenu {
         deleteBtn.click(e => {
             this.delete();
         });
-        this.menuElement.append(copyBtn, openLinkBtn, openLinkNewTabBtn, editBtn, deleteBtn, downloadBtn);
-        this.menuElement
-            .css({
-            top: this.wrapElement.offset()?.top - 35,
-            left: this.contentElement.offset()?.left
-        })
-            .appendTo($("body"));
-        if (this.menuElement.width() + 90 >= this.selectedElement.width())
+        getImageBtn.click(e => {
+            this.wrapElement.find("button").trigger("click");
+            this.disable();
+        });
+        this.menuElement.append(copyBtn, openLinkBtn, openLinkNewTabBtn, editBtn, deleteBtn, downloadBtn, getImageBtn);
+        this.menuElement.appendTo(document.body);
+        setTimeout(() => {
             this.menuElement.css({
-                left: this.contentElement.offset()?.left -
-                    (this.menuElement.width() + 40)
+                top: this.selectedElement.offset()?.top - 35,
+                left: this.selectedElement.offset()?.left +
+                    this.selectedElement.width() -
+                    this.menuElement.width()
             });
+            this.selectedElement.css("outline", "1px dotted #8b9194");
+        });
         if (this.wrapElement.hasClass("sent")) {
             this.menuElement.addClass("right-side");
             deleteBtn.removeClass("button-disabled");
+            this.menuElement.css("margin-left", -Math.abs(this.selectedElement.width()) + 10);
         }
         switch (this.objectType) {
             case "text_message":
@@ -702,13 +715,17 @@ class ContextMenu {
                     openLinkBtn.removeClass("button-disabled");
                     openLinkNewTabBtn.removeClass("button-disabled");
                 }
-                if (this.wrapElement.hasClass("sent")) {
+                if (this.wrapElement.hasClass("sent"))
                     editBtn.removeClass("button-disabled");
-                }
                 break;
             case "image":
                 if ($(this.wrapElement).find(".img-message").attr("ready") != null)
                     downloadBtn.removeClass("button-disabled");
+                else
+                    getImageBtn.removeClass("button-disabled");
+                this.menuElement.css({
+                    left: this.selectedElement.offset()?.left
+                });
                 break;
         }
     }
@@ -723,6 +740,7 @@ class ContextMenu {
         socket.emit(this.objectType === "text_message"
             ? "delete_text_message"
             : "delete_image", this.id);
+        this.disable();
     }
     openLink() {
         location.assign(this.target[0].textContent);
@@ -744,11 +762,6 @@ class ContextMenu {
         };
         this.contentElement.focusout(endEdit);
     }
-    disable() {
-        elementsActive.userContextMenu = false;
-        this.menuElement.remove();
-        this.enableScrolling();
-    }
     disableScrolling() {
         let x = chat_area[0].scrollLeft, y = chat_area[0].scrollTop;
         chat_area[0].onscroll = function () {
@@ -757,6 +770,12 @@ class ContextMenu {
     }
     enableScrolling() {
         chat_area[0].onscroll = function () { };
+    }
+    disable() {
+        elementsActive.userContextMenu = false;
+        this.menuElement.remove();
+        this.enableScrolling();
+        this.selectedElement.css("outline", "none");
     }
 }
 // ---------- Stack ----------
@@ -869,6 +888,7 @@ global.setCookie = setCookie;
 global.removeCookie = removeCookie;
 global.clearMsgHistory = clearMsgHistory;
 global.clearAllLogs = clearAllLogs;
+global.contextMenu = contextMenu;
 global.SOCKET = socket;
 global.CONFIG = CONFIG;
 global.Queue = Queue;

@@ -1,4 +1,4 @@
-import { MessageTypes as t, int, Socket } from "../db_types";
+import { MessageTypes as t, int, Socket } from "../Types";
 
 const global: any = window;
 const APP_TITLE = "Chat app";
@@ -265,6 +265,11 @@ socket
         downloadQueue.get().trigger("click");
       }
     }
+  })
+  .on("delete_image", (id: string) => {
+    const img = findMessage(id);
+    console.log(img);
+    img.remove();
   });
 // For local images with src
 // .on("image_id", (id: string) => {
@@ -838,22 +843,25 @@ class ContextMenu {
 
   constructor(event: JQuery.ContextMenuEvent | JQuery.ClickEvent) {
     this.disableScrolling();
+    elementsActive.userContextMenu = true;
 
     this.target = $(event.target);
-
-    if (this.target.hasClass("message")) this.selectedElement = $(event.target);
-    else this.selectedElement = $(event.target).parents(".message");
-    this.contentElement = this.selectedElement.find(".content");
-
-    elementsActive.userContextMenu = true;
 
     this.menuElement = $("<div>", { class: "context-menu" });
     this.wrapElement = this.target.hasClass("message-wrap")
       ? this.target
       : this.target.parents(".message-wrap");
-
-    this.id = this.wrapElement.attr("ms_id");
     this.objectType = this.wrapElement.attr("object_type") as t.object_type;
+    this.id = this.wrapElement.attr("ms_id");
+
+    this.selectedElement = this.wrapElement.find(
+      this.objectType === "text_message"
+        ? ".message"
+        : this.wrapElement.find(".img-message").attr("ready") != null
+        ? ".img-message"
+        : ".download-container"
+    );
+    this.contentElement = this.selectedElement.find(".content");
 
     const copyBtn = $("<span>", { html: "Copy", class: "button-disabled" }),
       openLinkBtn = $("<span>", {
@@ -877,6 +885,10 @@ class ContextMenu {
         class: "button-disabled",
         href: (this.wrapElement.find(".img-message")[0] as any)?.src,
         download: "image"
+      }),
+      getImageBtn = $("<span>", {
+        html: "Get",
+        class: "button-disabled"
       });
 
     copyBtn.click(e => {
@@ -899,32 +911,43 @@ class ContextMenu {
       this.delete();
     });
 
+    getImageBtn.click(e => {
+      this.wrapElement.find("button").trigger("click");
+      this.disable();
+    });
+
     this.menuElement.append(
       copyBtn,
       openLinkBtn,
       openLinkNewTabBtn,
       editBtn,
       deleteBtn,
-      downloadBtn
+      downloadBtn,
+      getImageBtn
     );
 
-    this.menuElement
-      .css({
-        top: (this.wrapElement.offset()?.top as number) - 35,
-        left: this.contentElement.offset()?.left as number
-      })
-      .appendTo($("body"));
+    this.menuElement.appendTo(document.body);
 
-    if (this.menuElement.width()! + 90 >= this.selectedElement.width()!)
+    setTimeout(() => {
       this.menuElement.css({
+        top: (this.selectedElement.offset()?.top as number) - 35,
         left:
-          (this.contentElement.offset()?.left as number) -
-          (this.menuElement.width()! + 40)
+          (this.selectedElement.offset()?.left as number) +
+          this.selectedElement.width() -
+          this.menuElement.width()
       });
+
+      this.selectedElement.css("outline", "1px dotted #8b9194");
+    });
 
     if (this.wrapElement.hasClass("sent")) {
       this.menuElement.addClass("right-side");
       deleteBtn.removeClass("button-disabled");
+
+      this.menuElement.css(
+        "margin-left",
+        -Math.abs(this.selectedElement.width()) + 10
+      );
     }
 
     switch (this.objectType) {
@@ -936,20 +959,24 @@ class ContextMenu {
           openLinkNewTabBtn.removeClass("button-disabled");
         }
 
-        if (this.wrapElement.hasClass("sent")) {
+        if (this.wrapElement.hasClass("sent"))
           editBtn.removeClass("button-disabled");
-        }
 
         break;
 
       case "image":
         if ($(this.wrapElement).find(".img-message").attr("ready") != null)
           downloadBtn.removeClass("button-disabled");
+        else getImageBtn.removeClass("button-disabled");
+
+        this.menuElement.css({
+          left: this.selectedElement.offset()?.left as number
+        });
         break;
     }
   }
 
-  copyText(): void {
+  private copyText(): void {
     let tempElement = $("<input>");
     $("body").append(tempElement);
     tempElement.val(this.contentElement.text()).trigger("select");
@@ -957,24 +984,26 @@ class ContextMenu {
     tempElement.remove();
   }
 
-  delete(): void {
+  private delete(): void {
     socket.emit(
       this.objectType === "text_message"
         ? "delete_text_message"
         : "delete_image",
       this.id
     );
+
+    this.disable();
   }
 
-  openLink(): void {
+  private openLink(): void {
     location.assign(this.target[0].textContent as string);
   }
 
-  openLinkNewTab(): void {
+  private openLinkNewTab(): void {
     window.open(this.target[0].textContent as string);
   }
 
-  edit(): void {
+  private edit(): void {
     let initilaText: string = this.contentElement.text(),
       initialHtml: string = this.contentElement.html();
     this.contentElement.attr("contenteditable", "true").trigger("focus");
@@ -994,12 +1023,6 @@ class ContextMenu {
     this.contentElement.focusout(endEdit);
   }
 
-  disable(): void {
-    elementsActive.userContextMenu = false;
-    this.menuElement.remove();
-    this.enableScrolling();
-  }
-
   private disableScrolling(): void {
     let x = chat_area[0].scrollLeft,
       y = chat_area[0].scrollTop;
@@ -1011,6 +1034,13 @@ class ContextMenu {
 
   private enableScrolling(): void {
     chat_area[0].onscroll = function () {};
+  }
+
+  public disable(): void {
+    elementsActive.userContextMenu = false;
+    this.menuElement.remove();
+    this.enableScrolling();
+    this.selectedElement.css("outline", "none");
   }
 }
 
@@ -1131,6 +1161,7 @@ global.setCookie = setCookie;
 global.removeCookie = removeCookie;
 global.clearMsgHistory = clearMsgHistory;
 global.clearAllLogs = clearAllLogs;
+global.contextMenu = contextMenu;
 
 global.SOCKET = socket;
 global.CONFIG = CONFIG;

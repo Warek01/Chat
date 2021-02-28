@@ -195,6 +195,16 @@ io.on("connection", (socket) => {
             });
         }
     });
+    socket.on("delete_image", async (id) => {
+        const title = await (await models_1.Image.findById(id)).toObject().title;
+        console.log(title);
+        if (fs_1.existsSync(path_1.default.join(IMG_PATH, title)))
+            fs_1.unlink(path_1.default.join(IMG_PATH, title), (err) => {
+                console.log(err);
+            });
+        io.sockets.emit("delete_image", id);
+        models_1.Image.deleteOne({ _id: id });
+    });
 });
 app.use(express_1.default.static(path_1.default.join(__dirname, "public")), cors_1.default());
 // Initialization process (message history) sending to each new connected user
