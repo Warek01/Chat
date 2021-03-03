@@ -46,6 +46,7 @@ let imageSettings: {
     title: null,
     id: null,
     element: null,
+
     reset() {
       this.parts = [];
       this.title = null;
@@ -57,17 +58,15 @@ let imageSettings: {
   elementsActive: {
     changeUserDropdown: boolean;
     settingsWindow: boolean;
-    userContextMenu: boolean;
+    customContextMenu: boolean;
   } = {
     changeUserDropdown: false,
     settingsWindow: false,
-    userContextMenu: false
+    customContextMenu: false
   };
 
 declare const io: Function;
 const socket: Socket = io();
-
-let downloadQueue: Queue<JQuery> | null = null;
 
 $(document).ready(function (event): void {
   if (document.cookie.match(/username/)) {
@@ -171,11 +170,20 @@ login_input.keypress(function (event): void {
   }
 });
 
-chat_input.keypress(function (event): void {
-  if (event.key === "Enter")
-    if (event.shiftKey) chat_input.val(chat_input.val() + "\n");
-    // Nu lucreaza \n la input
-    else $("#sendBtn").trigger("click");
+chat_input.on({
+  keydown: function (event: KeyboardEvent): void {
+    if (event.key === "Enter")
+      if (event.shiftKey) {
+        event.preventDefault();
+        $("#sendBtn").trigger("click");
+      }
+  },
+  focus: function (event: FocusEvent): void {
+    if ($(this).val() === "  Message text  ") $(this).val("");
+  },
+  blur: function (event: FocusEvent): void {
+    if ($(this).val() === "") $(this).val("  Message text  ");
+  }
 });
 
 // Global listeners
@@ -282,7 +290,7 @@ socket
 $(window).on({
   click: function (event): void {
     if (
-      elementsActive.userContextMenu &&
+      elementsActive.customContextMenu &&
       !$(event.target).hasClass("context-menu")
     ) {
       contextMenu?.disable();
@@ -291,7 +299,7 @@ $(window).on({
 
     if (
       elementsActive.settingsWindow &&
-      !elementsActive.userContextMenu &&
+      !elementsActive.customContextMenu &&
       $(event.target).attr("id") !== settings_window.attr("id") &&
       $(event.target).attr("id") !== settings_window.attr("id")
     )
@@ -299,7 +307,7 @@ $(window).on({
 
     if (
       elementsActive.changeUserDropdown &&
-      !elementsActive.userContextMenu &&
+      !elementsActive.customContextMenu &&
       $(event.target).attr("id") !== "dropdown" &&
       $(event.target).parents().attr("id") !== "dropdown" &&
       $(event.target).attr("id") !== "edit-user" &&
@@ -342,6 +350,10 @@ $(window).on({
 
       document.title = APP_TITLE;
     }
+  },
+
+  keydown: function (event: KeyboardEvent): void {
+    if (event.key === "F11") event.preventDefault();
   }
 });
 
@@ -353,17 +365,21 @@ $("button.switch").click(function (event): void {
   updateConfig($(this).data("config"));
 });
 
-$("#fullscreen").click(function (event): void {
-  if (
-    window.innerWidth === screen.width &&
-    window.innerHeight === screen.height
-  )
-    document.exitFullscreen();
-  else document.documentElement.requestFullscreen();
-});
+$("#fullscreen").click(toggleFullscreen);
 
 // --------------------------------------------------------------
 // Functions
+
+function toggleFullscreen(): void {
+  if (!document.fullscreenEnabled) console.warn("Fullscreen is disabled");
+  else if (
+    (window.innerWidth === screen.width &&
+      window.innerHeight === screen.height) ||
+    document.fullscreenElement
+  )
+    document.exitFullscreen();
+  else document.documentElement.requestFullscreen();
+}
 
 function notification(message: string): void {
   if (global.NT_TMOUT) {
@@ -474,7 +490,7 @@ function logout(): void {
 }
 
 function sendMessage(): void {
-  if (chat_input.val()!.toString().trim() !== "") {
+  if (chat_input.val() !== "  Message text  ") {
     const body: t.TextMessage = {
       content: chat_input.val() as string,
       author: currentUser as string,
@@ -581,10 +597,10 @@ function createConnectionLog(obj: t.ConnectionLog): void {
 }
 
 function createTextMsg(message: t.TextMessage): void {
-  let container = $("<div>", { class: "message-wrap" }),
+  const container = $("<div>", { class: "message-wrap" }),
     _message = $("<div>", { class: "message" });
 
-  let content = $("<span>", {
+  const content = $("<span>", {
       html: replaceWithAnchor(message.content.trim()),
       class: "content"
     }),
@@ -608,14 +624,13 @@ function createTextMsg(message: t.TextMessage): void {
       $("<div>", { class: "info-wrap", html: "" }).append(sender, date)
     );
 
-  if (message.is_edited) {
-    let editContainer = $("<span>", {
-      html: "Edited",
-      class: "edited-mark"
-    });
-
-    container.css("margin-bottom", 20).append(editContainer);
-  }
+  if (message.is_edited)
+    container.css("margin-bottom", 20).append(
+      $("<span>", {
+        html: "Edited",
+        class: "edited-mark"
+      })
+    );
 
   if (message.author === currentUser) container.addClass("sent");
 
@@ -647,7 +662,6 @@ function createImgMsg(
   downloadBtn
     .click(function (event): void {
       try {
-        if (!downloadQueue) downloadQueue = new Queue<JQuery>();
         if (imageSettings.transition) {
           downloadQueue.push($(this));
         }
@@ -843,7 +857,7 @@ class ContextMenu {
 
   constructor(event: JQuery.ContextMenuEvent | JQuery.ClickEvent) {
     this.disableScrolling();
-    elementsActive.userContextMenu = true;
+    elementsActive.customContextMenu = true;
 
     this.target = $(event.target);
 
@@ -1037,7 +1051,7 @@ class ContextMenu {
   }
 
   public disable(): void {
-    elementsActive.userContextMenu = false;
+    elementsActive.customContextMenu = false;
     this.menuElement.remove();
     this.enableScrolling();
     this.selectedElement.css("outline", "none");
@@ -1154,6 +1168,9 @@ class Queue<Type> {
     return this.data.length;
   }
 }
+
+// Image download queue
+const downloadQueue = new Queue<JQuery>();
 
 // temp
 global.splitToLength = global.split = splitToLength;

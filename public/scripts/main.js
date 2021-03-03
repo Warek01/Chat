@@ -21,10 +21,9 @@ let imageSettings = {
 }, elementsActive = {
     changeUserDropdown: false,
     settingsWindow: false,
-    userContextMenu: false
+    customContextMenu: false
 };
 const socket = io();
-let downloadQueue = null;
 $(document).ready(function (event) {
     if (document.cookie.match(/username/)) {
         currentUser = decodeURIComponent((document.cookie.match(/(?<=username=)\w+/) || [""])[0]);
@@ -115,13 +114,22 @@ login_input.keypress(function (event) {
             break;
     }
 });
-chat_input.keypress(function (event) {
-    if (event.key === "Enter")
-        if (event.shiftKey)
-            chat_input.val(chat_input.val() + "\n");
-        // Nu lucreaza \n la input
-        else
-            $("#sendBtn").trigger("click");
+chat_input.on({
+    keydown: function (event) {
+        if (event.key === "Enter")
+            if (event.shiftKey) {
+                event.preventDefault();
+                $("#sendBtn").trigger("click");
+            }
+    },
+    focus: function (event) {
+        if ($(this).val() === "  Message text  ")
+            $(this).val("");
+    },
+    blur: function (event) {
+        if ($(this).val() === "")
+            $(this).val("  Message text  ");
+    }
 });
 // Global listeners
 socket
@@ -225,18 +233,18 @@ socket
 // });
 $(window).on({
     click: function (event) {
-        if (elementsActive.userContextMenu &&
+        if (elementsActive.customContextMenu &&
             !$(event.target).hasClass("context-menu")) {
             contextMenu?.disable();
             return;
         }
         if (elementsActive.settingsWindow &&
-            !elementsActive.userContextMenu &&
+            !elementsActive.customContextMenu &&
             $(event.target).attr("id") !== settings_window.attr("id") &&
             $(event.target).attr("id") !== settings_window.attr("id"))
             settings_window.trigger("click");
         if (elementsActive.changeUserDropdown &&
-            !elementsActive.userContextMenu &&
+            !elementsActive.customContextMenu &&
             $(event.target).attr("id") !== "dropdown" &&
             $(event.target).parents().attr("id") !== "dropdown" &&
             $(event.target).attr("id") !== "edit-user" &&
@@ -270,6 +278,10 @@ $(window).on({
             global.NT_TMOUT = null;
             document.title = APP_TITLE;
         }
+    },
+    keydown: function (event) {
+        if (event.key === "F11")
+            event.preventDefault();
     }
 });
 send_photo_btn.click(function (event) {
@@ -278,15 +290,19 @@ send_photo_btn.click(function (event) {
 $("button.switch").click(function (event) {
     updateConfig($(this).data("config"));
 });
-$("#fullscreen").click(function (event) {
-    if (window.innerWidth === screen.width &&
-        window.innerHeight === screen.height)
+$("#fullscreen").click(toggleFullscreen);
+// --------------------------------------------------------------
+// Functions
+function toggleFullscreen() {
+    if (!document.fullscreenEnabled)
+        console.warn("Fullscreen is disabled");
+    else if ((window.innerWidth === screen.width &&
+        window.innerHeight === screen.height) ||
+        document.fullscreenElement)
         document.exitFullscreen();
     else
         document.documentElement.requestFullscreen();
-});
-// --------------------------------------------------------------
-// Functions
+}
 function notification(message) {
     if (global.NT_TMOUT) {
         clearTimeout(global.NT_TMOUT);
@@ -376,7 +392,7 @@ function logout() {
     }
 }
 function sendMessage() {
-    if (chat_input.val().toString().trim() !== "") {
+    if (chat_input.val() !== "  Message text  ") {
         const body = {
             content: chat_input.val(),
             author: currentUser,
@@ -458,8 +474,8 @@ function createConnectionLog(obj) {
         .appendTo(chat_area);
 }
 function createTextMsg(message) {
-    let container = $("<div>", { class: "message-wrap" }), _message = $("<div>", { class: "message" });
-    let content = $("<span>", {
+    const container = $("<div>", { class: "message-wrap" }), _message = $("<div>", { class: "message" });
+    const content = $("<span>", {
         html: replaceWithAnchor(message.content.trim()),
         class: "content"
     }), sender = $("<span>", {
@@ -473,13 +489,11 @@ function createTextMsg(message) {
         _message.append($("<div>", { class: "info-wrap", html: "" }).append(sender, date), content);
     else
         _message.append(content, $("<div>", { class: "info-wrap", html: "" }).append(sender, date));
-    if (message.is_edited) {
-        let editContainer = $("<span>", {
+    if (message.is_edited)
+        container.css("margin-bottom", 20).append($("<span>", {
             html: "Edited",
             class: "edited-mark"
-        });
-        container.css("margin-bottom", 20).append(editContainer);
-    }
+        }));
     if (message.author === currentUser)
         container.addClass("sent");
     for (let em of content.text().split(" "))
@@ -501,8 +515,6 @@ function createImgMsg(image, src, noDownload) {
     downloadBtn
         .click(function (event) {
         try {
-            if (!downloadQueue)
-                downloadQueue = new Queue();
             if (imageSettings.transition) {
                 downloadQueue.push($(this));
             }
@@ -638,7 +650,7 @@ class ContextMenu {
     constructor(event) {
         this.contentElement = null;
         this.disableScrolling();
-        elementsActive.userContextMenu = true;
+        elementsActive.customContextMenu = true;
         this.target = $(event.target);
         this.menuElement = $("<div>", { class: "context-menu" });
         this.wrapElement = this.target.hasClass("message-wrap")
@@ -772,7 +784,7 @@ class ContextMenu {
         chat_area[0].onscroll = function () { };
     }
     disable() {
-        elementsActive.userContextMenu = false;
+        elementsActive.customContextMenu = false;
         this.menuElement.remove();
         this.enableScrolling();
         this.selectedElement.css("outline", "none");
@@ -882,6 +894,8 @@ class Queue {
         return this.data.length;
     }
 }
+// Image download queue
+const downloadQueue = new Queue();
 // temp
 global.splitToLength = global.split = splitToLength;
 global.setCookie = setCookie;

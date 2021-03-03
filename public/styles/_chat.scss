@@ -68,11 +68,17 @@
     height: 12%;
     margin: 0 auto;
 
-    input[type="text"] {
+    #chat-input {
       position: relative;
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
       width: 90%;
-      height: 30px;
+      min-height: 30px;
+      max-height: 120px;
+      overflow-y: auto;
       background-color: $lighted-main-black;
+      resize: none;
       border-radius: 15px;
       color: #fff;
       font-size: 1em;
@@ -81,9 +87,9 @@
       outline: none;
       text-indent: 10px;
 
-      &::placeholder {
-        color: #bbb;
-        text-indent: 20px;
+      .placeholder {
+        color: #909daa;
+        margin-left: 15px;
       }
     }
   }

@@ -62,7 +62,11 @@
     <div class="chat-window dark">
       <div id="chat-area"></div>
       <div class="chat-input-wrapper">
-        <input type="text" name="" placeholder="Message" id="chat-input">
+
+        <!-- <input type="text" placeholder="Message text" id="chat-input"> -->
+
+        <textarea name="" id="chat-input" rows="1">  Message text  </textarea>
+
         <button id="sendBtn" class="dark">
           Send
         </button>
@@ -108,7 +112,6 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="./scripts/jquery.js"></script>
-
   <script src="./scripts/main.js" type="module"></script>
 </body>
 

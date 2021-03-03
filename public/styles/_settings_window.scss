@@ -12,6 +12,10 @@
   .area {
     position: relative;
     height: 85%;
+
+    @media screen and (max-width: 1001px) {
+      height: 80%;
+    }
   }
 
   .switch-wrapper {

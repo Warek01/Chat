@@ -7,3 +7,5 @@ node_modules
 saved_img/*
 
 db_types.js
+
+logs.txt

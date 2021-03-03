@@ -21,14 +21,6 @@ button:focus { outline: none; }
 .text-button { display: inline-block; border: none; background-color: transparent; cursor: pointer; }
 .text-button:hover { text-decoration: underline; }
 
-.context-menu { position: absolute; display: flex; width: auto; height: 30px; border-radius: 5px; padding: 0 10px; align-items: center; background-color: #b2bec3; font-size: 10px; cursor: default; z-index: 100; }
-.context-menu.right-side::after { content: ""; position: absolute; right: 10px; bottom: -5px; width: 10px; height: 10px; cursor: default; transform: rotateZ(45deg); background-color: #b2bec3; }
-.context-menu:not(.right-side)::after { content: ""; position: absolute; bottom: -5px; width: 10px; height: 10px; transform: rotateZ(45deg); left: 10px; background-color: #b2bec3; }
-.context-menu span, .context-menu a { position: relative; display: inline-flex; justify-content: center; align-items: center; padding: 2px 5px; color: #333; text-decoration: none; }
-.context-menu span:not(.button-disabled), .context-menu a:not(.button-disabled) { cursor: pointer; }
-.context-menu span:not(.button-disabled):hover, .context-menu a:not(.button-disabled):hover { text-decoration: underline; z-index: 100; }
-.context-menu .button-disabled { display: none; cursor: default; pointer-events: none; }
-
 #photoInput { width: 0; height: 0; filter: opacity(0); }
 
 header { position: relative; display: flex; width: 100%; height: 60px; justify-content: space-between; z-index: 1; }
@@ -66,8 +58,8 @@ header #dropdown button:focus { border: 1px solid #333333; }
 #chat-wrapper ::-webkit-scrollbar-thumb { background-color: #5c6976; border-radius: 6px; }
 #chat-wrapper ::-webkit-scrollbar-thumb:hover { background-color: #555; }
 #chat-wrapper .chat-input-wrapper { position: relative; display: flex; align-items: center; width: 95%; height: 12%; margin: 0 auto; }
-#chat-wrapper .chat-input-wrapper input[type="text"] { position: relative; width: 90%; height: 30px; background-color: #5c6976; border-radius: 15px; color: #fff; font-size: 1em; box-shadow: none; border: none; outline: none; text-indent: 10px; }
-#chat-wrapper .chat-input-wrapper input[type="text"]::placeholder { color: #bbb; text-indent: 20px; }
+#chat-wrapper .chat-input-wrapper #chat-input { position: relative; display: flex; justify-content: flex-start; align-items: center; width: 90%; min-height: 30px; max-height: 120px; overflow-y: auto; background-color: #5c6976; resize: none; border-radius: 15px; color: #fff; font-size: 1em; box-shadow: none; border: none; outline: none; text-indent: 10px; }
+#chat-wrapper .chat-input-wrapper #chat-input .placeholder { color: #909daa; margin-left: 15px; }
 #chat-wrapper #sendBtn { margin-left: 10px; height: 30px; }
 #chat-wrapper #photoBtn { margin-left: 5px; height: 30px; }
 
@@ -104,6 +96,7 @@ header #dropdown button:focus { border: 1px solid #333333; }
 
 #settings-window { position: absolute; display: none; width: 85%; height: 85%; left: 7.5%; top: 9%; background-color: rgba(255, 255, 255, 0.925); border-radius: 10px; box-shadow: 4px 4px 4px rgba(186, 186, 186, 0.35), 4px 4px 12px rgba(186, 186, 186, 0.35); }
 #settings-window .area { position: relative; height: 85%; }
+@media screen and (max-width: 1001px) { #settings-window .area { height: 80%; } }
 #settings-window .switch-wrapper { display: flex; justify-content: center; }
 #settings-window button { position: relative; display: block; width: 250px; height: 40px; margin-left: auto; margin-right: auto; left: 0; top: 0; transition: all 200ms ease; }
 #settings-window button:not(:last-child) { margin-top: 20px; }
@@ -115,3 +108,11 @@ header #dropdown button:focus { border: 1px solid #333333; }
 #settings-window .margin-vertical { position: relative; display: block; margin-top: 50px; }
 #settings-window .logo-wrapper { display: flex; position: relative; height: 50px; justify-content: center; align-items: center; }
 #settings-window .logo-wrapper .logo { font-size: 48px; }
+
+.context-menu { position: absolute; display: flex; width: auto; height: 30px; border-radius: 5px; padding: 0 10px; align-items: center; background-color: #b2bec3; font-size: 10px; cursor: default; z-index: 100; }
+.context-menu.right-side::after { content: ""; position: absolute; right: 10px; bottom: -5px; width: 10px; height: 10px; cursor: default; transform: rotateZ(45deg); background-color: #b2bec3; }
+.context-menu:not(.right-side)::after { content: ""; position: absolute; bottom: -5px; width: 10px; height: 10px; transform: rotateZ(45deg); left: 10px; background-color: #b2bec3; }
+.context-menu span, .context-menu a { position: relative; display: inline-flex; justify-content: center; align-items: center; padding: 2px 5px; color: #333; text-decoration: none; }
+.context-menu span:not(.button-disabled), .context-menu a:not(.button-disabled) { cursor: pointer; }
+.context-menu span:not(.button-disabled):hover, .context-menu a:not(.button-disabled):hover { text-decoration: underline; z-index: 100; }
+.context-menu .button-disabled { display: none; cursor: default; pointer-events: none; }
