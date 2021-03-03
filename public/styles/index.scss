@@ -10,5 +10,12 @@ body {
   font-family: "Montserrat", sans-serif;
 }
 
+:not(#login-wrapper) {
+  z-index: 2;
+}
+
 @import "assets";
 @import "header";
+@import "login";
+@import "chat";
+@import "settings_window";

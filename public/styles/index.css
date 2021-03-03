@@ -4,10 +4,114 @@
 */
 body { margin: 0; padding: 0; box-sizing: border-box; color: #333; background-color: #fff; font-size: 16px; font-family: "Montserrat", sans-serif; }
 
-header { position: relative; display: flex; width: 100%; height: 60px; justify-content: space-between; color: #fff; background-color: #24292E; }
+:not(#login-wrapper) { z-index: 2; }
+
+[contenteditable="true"]:focus { outline: none; }
+
+.hidden { display: none; pointer-events: none; }
+
+.dark { background-color: #24292e; color: #fff; }
+
+button { border: 1px solid; border-radius: 6px; padding: 5px 16px; cursor: pointer; }
+button.light { background-color: #ececec; border-color: rgba(51, 51, 51, 0.1); box-shadow: 1px 1px 2px #aaaaaa; }
+button.dark { border: 1px solid rgba(102, 102, 102, 0.5); background-color: #24292e; box-shadow: none; }
+button.dark:hover { border: 1px solid #666666; }
+button:focus { outline: none; }
+
+.text-button { display: inline-block; border: none; background-color: transparent; cursor: pointer; }
+.text-button:hover { text-decoration: underline; }
+
+.context-menu { position: absolute; display: flex; width: auto; height: 30px; border-radius: 5px; padding: 0 10px; align-items: center; background-color: #b2bec3; font-size: 10px; cursor: default; z-index: 100; }
+.context-menu.right-side::after { content: ""; position: absolute; right: 10px; bottom: -5px; width: 10px; height: 10px; cursor: default; transform: rotateZ(45deg); background-color: #b2bec3; }
+.context-menu:not(.right-side)::after { content: ""; position: absolute; bottom: -5px; width: 10px; height: 10px; transform: rotateZ(45deg); left: 10px; background-color: #b2bec3; }
+.context-menu span, .context-menu a { position: relative; display: inline-flex; justify-content: center; align-items: center; padding: 2px 5px; color: #333; text-decoration: none; }
+.context-menu span:not(.button-disabled), .context-menu a:not(.button-disabled) { cursor: pointer; }
+.context-menu span:not(.button-disabled):hover, .context-menu a:not(.button-disabled):hover { text-decoration: underline; z-index: 100; }
+.context-menu .button-disabled { display: none; cursor: default; pointer-events: none; }
+
+#photoInput { width: 0; height: 0; filter: opacity(0); }
+
+header { position: relative; display: flex; width: 100%; height: 60px; justify-content: space-between; z-index: 1; }
+@media screen and (max-width: 1001px) { header { border-bottom: 1px solid #fff; } }
 header .logo { position: relative; display: flex; height: 100%; align-items: center; justify-content: center; margin-left: 30px; }
 header .logo p { font-size: 2.2em; margin: 0; }
 header .user { position: relative; display: flex; height: 100%; align-items: center; margin-right: 30px; }
-header .user button#edit-user { background-color: transparent; border: none; border-radius: 10px; cursor: pointer; }
+header .user button#edit-user { background-color: transparent; border: none; border-radius: 10px; cursor: pointer; pointer-events: none; }
 header .user button#edit-user:focus { outline: none; border: none; }
 header .user button#edit-user img { height: 24px; width: 24px; }
+header #dropdown { position: absolute; display: none; right: 30px; top: 60px; height: 150px; width: 150px; border-radius: 20px; z-index: 100; background-color: #fff; box-shadow: 4px 4px 4px rgba(186, 186, 186, 0.35), 4px 4px 12px rgba(186, 186, 186, 0.35); }
+@media screen and (max-width: 1501px) { header #dropdown { background-color: #fafafa; box-shadow: none; } }
+header #dropdown::before { content: ""; display: block; position: absolute; right: 20px; top: -5px; background-color: #fff; z-index: 99; width: 12px; height: 12px; transform: rotateZ(45deg); }
+header #dropdown #user { position: relative; display: block; width: 100%; height: 25px; text-align: center; color: #666; word-break: break-all; }
+header #dropdown button { display: flex; margin: 0 auto; width: 80px; height: 30px; margin-left: 35px; margin-top: 10px; justify-content: center; align-items: center; }
+header #dropdown button:focus { border: 1px solid #333333; }
+
+#login-wrapper { position: absolute; display: none; top: 0; align-items: center; justify-content: center; width: 100%; height: 100%; }
+#login-wrapper .login { position: relative; width: 350px; height: 400px; z-index: 5; }
+#login-wrapper .login .user-img-wrapper { position: relative; display: inline-flex; justify-content: center; align-items: center; margin: 30px 137.5px 10px 137.5px; padding: 20px; border-radius: 50%; background-color: rgba(255, 255, 255, 0.1); }
+#login-wrapper .login .user-img-wrapper img { height: 35px; width: 35px; }
+#login-wrapper .login p { text-align: center; font-weight: 300; letter-spacing: .75px; }
+#login-wrapper .login input[type=text] { position: relative; width: 300px; height: 30px; border: none; margin: 10px 23px; }
+#login-wrapper .login input[type=text]:focus { outline: none; border: none; }
+#login-wrapper .login button { margin: 30px 141px; }
+
+#chat-wrapper { position: absolute; display: flex; z-index: -1; justify-content: center; align-items: center; width: 100%; height: calc(100% - 60px); top: 60px; /* Width */ /* Track */ /* Handle */ }
+#chat-wrapper .chat-window { position: relative; display: block; height: 85vh; width: 80vw; border-radius: 10px; }
+@media screen and (max-width: 1501px) { #chat-wrapper .chat-window { width: 90vw; height: 92.5%; } }
+@media screen and (max-width: 1001px) { #chat-wrapper .chat-window { width: 100vw; height: 100%; border-radius: 0; } }
+#chat-wrapper #chat-area { position: relative; display: block; width: 97.5%; height: 84%; margin: 1% auto 5px auto; overflow-y: auto; }
+#chat-wrapper #chat-area * { transition: all 0.3s ease; }
+#chat-wrapper ::-webkit-scrollbar { width: 8px; }
+#chat-wrapper ::-webkit-scrollbar-track { background: #f1f1f1; box-shadow: inset 0 0 4px #24292e; border-radius: 6px; }
+#chat-wrapper ::-webkit-scrollbar-thumb { background-color: #5c6976; border-radius: 6px; }
+#chat-wrapper ::-webkit-scrollbar-thumb:hover { background-color: #555; }
+#chat-wrapper .chat-input-wrapper { position: relative; display: flex; align-items: center; width: 95%; height: 12%; margin: 0 auto; }
+#chat-wrapper .chat-input-wrapper input[type="text"] { position: relative; width: 90%; height: 30px; background-color: #5c6976; border-radius: 15px; color: #fff; font-size: 1em; box-shadow: none; border: none; outline: none; text-indent: 10px; }
+#chat-wrapper .chat-input-wrapper input[type="text"]::placeholder { color: #bbb; text-indent: 20px; }
+#chat-wrapper #sendBtn { margin-left: 10px; height: 30px; }
+#chat-wrapper #photoBtn { margin-left: 5px; height: 30px; }
+
+.message-wrap { position: relative; display: flex; min-height: 20px; width: 100%; }
+.message-wrap .message { position: relative; display: flex; max-width: 50%; }
+@media screen and (max-width: 601px) { .message-wrap .message { max-width: 80%; }
+  .message-wrap .message .content { max-width: 950%; } }
+.message-wrap .content { position: relative; display: inline-flex; max-width: 80%; right: 0; align-items: center; justify-content: center; margin: 2px 0 2px 10px; padding: 5px 10px; border-radius: 20px; border-top-left-radius: 0; word-break: normal; text-align: left; background-color: #8b9194; }
+.message-wrap .info-wrap { position: relative; display: flex; height: 20px; width: 69%; margin-left: 20px; align-self: flex-end; justify-content: flex-start; align-items: center; }
+.message-wrap .info-wrap span { display: block; position: relative; font-size: 10px; max-height: 20px; top: 0; }
+.message-wrap .info-wrap .sender { margin-right: 10px; }
+.message-wrap .info-wrap .date::before { content: ""; position: absolute; display: block; height: 15px; width: 1px; top: -2px; left: -5px; background-color: #e1b12c; }
+.message-wrap a { color: #f1c40f; }
+.message-wrap a:hover { color: #f9e8a0; }
+.message-wrap .edited-mark { width: 30px; position: absolute; font-size: 8px; bottom: -10px; }
+.message-wrap.sent { position: relative; display: flex; justify-content: flex-end; }
+.message-wrap.sent .info-wrap { justify-content: flex-end; margin-right: 20px; margin-left: none; }
+.message-wrap.sent .edited-mark { right: 20px; }
+.message-wrap.sent .img-message { right: 10px; }
+.message-wrap.sent .download-container { right: 10px; }
+.message-wrap.sent .content { background-color: #3498db; right: 5px; border-top-left-radius: 20px; border-bottom-right-radius: 0; margin-left: 0; }
+.message-wrap[object_type="image"] { margin-top: 10px; }
+.message-wrap .img-message { position: relative; display: inline-block; width: 25vw; border: none; outline: none; border-radius: 10px; }
+@media screen and (max-width: 1001px) { .message-wrap .img-message { width: 60vw; } }
+.message-wrap .img-message.inactive { display: none; }
+.message-wrap .download-container { position: relative; display: flex; top: 0; width: 30%; height: 15vw; justify-content: center; align-items: center; background-color: #3a434b; border-radius: 10px; margin: 0; }
+@media screen and (max-width: 1001px) { .message-wrap .download-container { width: 60vw; height: 30vw; }
+  .message-wrap .download-container button.download-btn { width: 12.5vw; height: 12.5vw; }
+  .message-wrap .download-container button.download-btn img { position: relative; width: 7.5vw; height: 7.5vw; } }
+.message-wrap .download-container button.download-btn { display: flex; justify-content: center; align-items: center; border-radius: 50%; padding: 20px; border: none; background-color: #acb5be; }
+
+.connection { position: relative; display: flex; width: 100%; height: 15px; margin-top: 5px; justify-content: center; align-items: center; }
+.connection .username { display: inline-block; text-align: center; color: #1abc9c; font-size: 12px; }
+
+#settings-window { position: absolute; display: none; width: 85%; height: 85%; left: 7.5%; top: 9%; background-color: rgba(255, 255, 255, 0.925); border-radius: 10px; box-shadow: 4px 4px 4px rgba(186, 186, 186, 0.35), 4px 4px 12px rgba(186, 186, 186, 0.35); }
+#settings-window .area { position: relative; height: 85%; }
+#settings-window .switch-wrapper { display: flex; justify-content: center; }
+#settings-window button { position: relative; display: block; width: 250px; height: 40px; margin-left: auto; margin-right: auto; left: 0; top: 0; transition: all 200ms ease; }
+#settings-window button:not(:last-child) { margin-top: 20px; }
+#settings-window button:hover { box-shadow: 4px 4px 6px rgba(143, 143, 143, 0.35), 4px 4px 15px rgba(186, 186, 186, 0.35); top: -4px; left: -4px; }
+#settings-window button.switch { border: none; background-color: #2ecc71; display: inline-block; margin: 0; }
+#settings-window button.switch:not(:first-child) { margin-left: 20px; }
+#settings-window button.switch.off { background-color: #e74c3c; }
+#settings-window #close-settings-window { bottom: 0; }
+#settings-window .margin-vertical { position: relative; display: block; margin-top: 50px; }
+#settings-window .logo-wrapper { display: flex; position: relative; height: 50px; justify-content: center; align-items: center; }
+#settings-window .logo-wrapper .logo { font-size: 48px; }

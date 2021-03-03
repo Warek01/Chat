@@ -1,0 +1,124 @@
+$main-black: #24292e;
+$lighted-main-black: lighten($main-black, 25);
+
+[contenteditable="true"]:focus {
+  outline: none;
+}
+
+.hidden {
+  display: none;
+  pointer-events: none;
+}
+
+.dark {
+  background-color: $main-black;
+  color: #fff;
+}
+
+button {
+  border: 1px solid;
+  border-radius: 6px;
+  padding: 5px 16px;
+  cursor: pointer;
+
+  &.light {
+    background-color: #ececec;
+    border-color: rgba(#333, 0.1);
+    box-shadow: 1px 1px 2px rgba(#aaa, 1);
+  }
+
+  &.dark {
+    border: 1px solid rgba(#666, 0.5);
+    background-color: $main-black;
+    box-shadow: none;
+
+    &:hover {
+      border: 1px solid rgba(#666, 1);
+    }
+  }
+
+  &:focus {
+    outline: none;
+  }
+}
+
+.text-button {
+  display: inline-block;
+  border: none;
+  background-color: transparent;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.context-menu {
+  position: absolute;
+  display: flex;
+  width: auto;
+  height: 30px;
+  border-radius: 5px;
+  padding: 0 10px;
+  align-items: center;
+  background-color: #b2bec3;
+  font-size: 10px;
+  cursor: default;
+  z-index: 100;
+
+  &.right-side::after {
+    content: "";
+    position: absolute;
+    right: 10px;
+    bottom: -5px;
+    width: 10px;
+    height: 10px;
+    cursor: default;
+    transform: rotateZ(45deg);
+    background-color: #b2bec3;
+  }
+
+  &:not(.right-side)::after {
+    content: "";
+    position: absolute;
+    bottom: -5px;
+    width: 10px;
+    height: 10px;
+    transform: rotateZ(45deg);
+    left: 10px;
+    background-color: #b2bec3;
+  }
+
+  span,
+  a {
+    position: relative;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2px 5px;
+    color: #333;
+    text-decoration: none;
+
+    &:not(.button-disabled) {
+      cursor: pointer;
+
+      &:hover {
+        text-decoration: underline;
+        z-index: 100;
+      }
+    }
+  }
+
+  .button-disabled {
+    display: none;
+    // color: #9f9f9f;
+    cursor: default;
+    pointer-events: none;
+  }
+}
+
+#photoInput {
+  width: 0;
+  height: 0;
+  filter: opacity(0);
+}

@@ -1,0 +1,81 @@
+#settings-window {
+  position: absolute;
+  display: none;
+  width: 85%;
+  height: 85%;
+  left: 7.5%;
+  top: 9%;
+  background-color: rgba($color: #fff, $alpha: 0.925);
+  border-radius: 10px;
+  box-shadow: 4px 4px 4px rgba(#bababa, 0.35), 4px 4px 12px rgba(#bababa, 0.35);
+
+  .area {
+    position: relative;
+    height: 85%;
+  }
+
+  .switch-wrapper {
+    display: flex;
+    justify-content: center;
+  }
+
+  button {
+    position: relative;
+    display: block;
+    width: 250px;
+    height: 40px;
+    margin-left: auto;
+    margin-right: auto;
+    left: 0;
+    top: 0;
+    transition: all 200ms ease;
+
+    &:not(:last-child) {
+      margin-top: 20px;
+    }
+
+    &:hover {
+      box-shadow: 4px 4px 6px rgba(#8f8f8f, 0.35),
+        4px 4px 15px rgba(#bababa, 0.35);
+      top: -4px;
+      left: -4px;
+    }
+
+    &.switch {
+      border: none;
+      background-color: #2ecc71;
+      display: inline-block;
+      margin: 0;
+
+      &:not(:first-child) {
+        margin-left: 20px;
+      }
+
+      &.off {
+        background-color: #e74c3c;
+      }
+    }
+  }
+
+  #close-settings-window {
+    bottom: 0;
+  }
+
+  .margin-vertical {
+    position: relative;
+    display: block;
+    margin-top: 50px;
+  }
+
+  .logo-wrapper {
+    display: flex;
+    position: relative;
+    height: 50px;
+    justify-content: center;
+    align-items: center;
+
+    .logo {
+      font-size: 48px;
+    }
+  }
+}

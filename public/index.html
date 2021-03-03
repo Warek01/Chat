@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,8 +12,10 @@
   <link rel="shortcut icon" href="./img/icon.ico" type="image/x-icon">
   <title>Chat app</title>
 </head>
+
 <body>
-  <header>
+
+  <header class="dark">
     <div class="logo">
       <p>
         Chat
@@ -23,6 +26,90 @@
         <img src="./img/edit-user-32.png" alt="Edit user">
       </button>
     </div>
+    <div id="dropdown">
+      <p id="user"></p>
+      <button id="change-username">
+        Log out
+      </button>
+      <button id="toggle-settings-window">
+        Advanced
+      </button>
+    </div>
   </header>
+
+  <div id="login-wrapper">
+    <div class="login dark">
+      <div class="user-img-wrapper">
+        <img src="./img/user-32.png" alt="Enter username">
+      </div>
+      <label for="username">
+        <p>
+          Enter username
+        </p>
+      </label>
+      <input type="text" placeholder="Username here" name="" id="username">
+      <p class="last-user">
+        Last user connected: <br>
+        <span id="last-user-name" class="text-button"></span>
+      </p>
+      <button id="login" class="light">
+        Begin
+      </button>
+    </div>
+  </div>
+
+  <div id="chat-wrapper">
+    <div class="chat-window dark">
+      <div id="chat-area"></div>
+      <div class="chat-input-wrapper">
+        <input type="text" name="" placeholder="Message" id="chat-input">
+        <button id="sendBtn" class="dark">
+          Send
+        </button>
+        <button id="photoBtn" class="dark">
+          Photo
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="settings-window">
+    <div class="logo-wrapper">
+      <p class="logo">Settings</p>
+    </div>
+    <div class="area">
+      <button id="clear-history">
+        Clear chat history
+      </button>
+      <button id="clear-connection-logs">
+        Clear connection logs
+      </button>
+      <button id="fullscreen">
+        Toggle fullscreen
+      </button>
+      <button onclick="location.reload()">
+        Reload
+      </button>
+      <div class="margin-vertical"></div>
+      <div class="switch-wrapper">
+        <button class="switch" id="switch-connection-logs" data-config="noConnectionLogs">
+          Connection logs
+        </button>
+        <button class="switch" id="switch-notifications" data-config="noNotifications">
+          Notifications
+        </button>
+      </div>
+    </div>
+    <button id="close-settings-window">
+      Close
+    </button>
+  </div>
+  <input type="file" accept="image/*" id="photoInput"></input>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="./scripts/jquery.js"></script>
+
+  <script src="./scripts/main.js" type="module"></script>
 </body>
+
 </html>
