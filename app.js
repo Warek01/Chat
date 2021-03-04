@@ -29,7 +29,9 @@ const http_1 = require("http");
 const chalk_1 = __importDefault(require("chalk"));
 const cors_1 = __importDefault(require("cors"));
 const path_1 = __importDefault(require("path"));
+const readline_1 = __importDefault(require("readline"));
 const models_1 = require("./models");
+const process_1 = require("process");
 const fs_1 = require("fs");
 const sharp_1 = __importDefault(require("sharp"));
 const base64ToArrBuf = __importStar(require("base64-arraybuffer"));
@@ -42,22 +44,22 @@ try {
         .options("p", {
         alias: "port",
         describe: "Port where to run app",
-        default: 8000
+        default: 8000,
     })
         .options("nologs", {
         default: true,
-        alias: "no-connection-logs"
+        alias: "no-connection-logs",
     }).argv;
     let CONFIG = {
         noConnectionLogs: argv.nologs,
-        noNotifications: false
+        noNotifications: false,
     };
     // Open mongodb connection
     mongoose_1.connect("mongodb://localhost:27017/Chat", {
         useFindAndModify: true,
         useNewUrlParser: true,
         useUnifiedTopology: true,
-        numberOfRetries: 2
+        numberOfRetries: 2,
     });
     models_1.Config.exists({}, async (err, exists) => {
         if (err)
@@ -81,14 +83,14 @@ try {
         .on("close", () => {
         console.log(chalk_1.default.hex("#1a9c74")("Database disconnected!"));
     })
-        .on("error", err => {
+        .on("error", (err) => {
         console.log(chalk_1.default.hex("#e84118")("Database Error: "), err);
     });
     // Socket.io (websocket) connection
-    io._connectTimeout = 10000;
+    io._connectTimeout = 10_000;
     io.on("connection", (socket) => {
         console.log(chalk_1.default.hex("#95a5a6")("Client connected!"));
-        socket.on("error", err => {
+        socket.on("error", (err) => {
             console.log("Socket error");
             console.log(chalk_1.default.hex("#e84118")(err));
         });
@@ -108,15 +110,16 @@ try {
             }
         });
         socket.on("clear_history", async () => {
-            fs_1.readdir(IMG_PATH, (err, files) => {
-                if (err)
-                    throw err;
-                for (const fileName of files)
-                    fs_1.unlink(path_1.default.join(IMG_PATH, fileName), err => {
-                        if (err)
-                            console.log(err);
-                    });
-            });
+            if (fs_1.existsSync(IMG_PATH))
+                fs_1.readdir(IMG_PATH, (err, files) => {
+                    if (err)
+                        throw err;
+                    for (const fileName of files)
+                        fs_1.unlink(path_1.default.join(IMG_PATH, fileName), (err) => {
+                            if (err)
+                                console.log(err);
+                        });
+                });
             await models_1.TextMessage.deleteMany({}).catch(logError(socket, "Clear History, Text Messages"));
             await models_1.ConnectionLog.deleteMany({}).catch(logError(socket, "Clear History, Connection Logs"));
             await models_1.Image.deleteMany({}).catch(logError(socket, "Clear History, Images"));
@@ -129,7 +132,7 @@ try {
         socket.on("message_edit", async (id, content) => {
             await models_1.TextMessage.findByIdAndUpdate(id, {
                 content: content,
-                edited: true
+                edited: true,
             }).catch(logError(socket, "Message Edit"));
             io.sockets.emit("message_edit", id, content);
         });
@@ -184,7 +187,7 @@ try {
                 sharp_1.default(Buffer.from(base64ToArrBuf.decode(base64)))
                     .resize(1280, 720, { fit: "outside" })
                     .toFile(path_1.default.join(IMG_PATH, image.title))
-                    .catch(err => {
+                    .catch((err) => {
                     console.log("Error resizing file", err);
                 })
                     .then(() => {
@@ -262,6 +265,74 @@ try {
     server.listen(argv.port, () => {
         console.log(`App started on port ${argv.port}`);
     });
+    const rl = readline_1.default.createInterface({ input: process_1.stdin, output: process_1.stdout });
+    rl.on("line", (str) => {
+        switch (str) {
+            case "":
+                return;
+            case "\n":
+                return;
+            case "cl-ip":
+                models_1.IPaddress.deleteMany({}).then(() => console.log(chalk_1.default.hex("#718093")("Addresses removed from db")));
+                if (fs_1.existsSync(path_1.default.join(__dirname, "temp", "ip")))
+                    fs_1.unlink(path_1.default.join(__dirname, "temp", "ip"), (err) => {
+                        if (err)
+                            throw err;
+                    });
+                break;
+            case "cl-msg":
+                models_1.TextMessage.deleteMany({}).then(() => console.log(chalk_1.default.hex("#718093")("Text messages removed from db")));
+                break;
+            case "cl-img":
+                if (fs_1.existsSync(IMG_PATH))
+                    fs_1.readdir(IMG_PATH, (err, files) => {
+                        if (err)
+                            throw err;
+                        for (const fileName of files)
+                            fs_1.unlink(path_1.default.join(IMG_PATH, fileName), (err) => {
+                                if (err)
+                                    console.log(err);
+                            });
+                    });
+                models_1.Image.deleteMany({}).then(() => console.log(chalk_1.default.hex("#718093")("Images removed from db")));
+                break;
+            case "cl-logs":
+                if (fs_1.existsSync(path_1.default.join(__dirname, "logs.txt"))) {
+                    fs_1.unlink(path_1.default.join(__dirname, "logs.txt"), (err) => {
+                        if (err)
+                            throw err;
+                    });
+                    console.log("All logs removed");
+                }
+                else
+                    console.log(chalk_1.default.hex("#718093")("No logs available"));
+                break;
+            case "cl-cnlogs":
+                models_1.ConnectionLog.deleteMany({}).then(() => console.log(chalk_1.default.hex("#718093")("Connection logs removed from db")));
+                break;
+            case "cl-all":
+                if (fs_1.existsSync(IMG_PATH))
+                    fs_1.readdir(IMG_PATH, (err, files) => {
+                        if (err)
+                            throw err;
+                        for (const fileName of files)
+                            fs_1.unlink(path_1.default.join(IMG_PATH, fileName), (err) => {
+                                if (err)
+                                    console.log(err);
+                            });
+                    });
+                models_1.ConnectionLog.deleteMany({});
+                models_1.Image.deleteMany({});
+                models_1.TextMessage.deleteMany({});
+                console.log(chalk_1.default.hex("#718093")("History cleared"));
+                break;
+            case "end":
+                process_1.exit(0);
+                break;
+            default:
+                throw Error(`No such command: ${str}`);
+        }
+    });
     function logError(socket = null, message = null) {
         return function (err) {
             console.log(message ? chalk_1.default.hex("#f0932b")(message + ": ") : "", chalk_1.default.hex("#e84118")(err));
@@ -293,6 +364,28 @@ try {
     }
     function logNewClients(params = { writeToDb: false, writeToFile: false }) {
         return function (req, res, next) {
+            if (params.writeToFile)
+                if (fs_1.existsSync(path_1.default.join(__dirname, "temp", "ip")))
+                    fs_1.appendFile(path_1.default.join(__dirname, "temp", "ip"), `\n\n${req.ip}  ${req.connection.remoteAddress}  ${req.headers["x-forwarded-for"]}`, (err) => {
+                        if (err)
+                            throw err;
+                    });
+                else
+                    fs_1.writeFile(path_1.default.join(__dirname, "temp", "ip"), `${req.ip}  ${req.connection.remoteAddress}  ${req.headers["x-forwarded-for"]}`, (err) => {
+                        if (err)
+                            throw err;
+                    });
+            if (params.writeToDb)
+                models_1.IPaddress.exists({
+                    value: `${req.ip}  ${req.connection.remoteAddress}  ${req.headers["x-forwarded-for"]}`,
+                }, (err, res) => {
+                    if (err)
+                        throw err;
+                    if (!fs_1.existsSync)
+                        new models_1.IPaddress({
+                            value: `${req.ip}  ${req.connection.remoteAddress}  ${req.headers["x-forwarded-for"]}`,
+                        }).save();
+                });
             next();
         };
     }

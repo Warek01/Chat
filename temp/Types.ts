@@ -36,5 +36,9 @@ export namespace MessageTypes {
     noNotifications: boolean;
   }
 
+  export interface IPaddress {
+    value: string;
+  }
+
   export type object_type = "text_message" | "connection_log" | "image";
 }

@@ -5,26 +5,26 @@ export const TextMessage = model(
   new Schema({
     content: {
       type: String,
-      required: true
+      required: true,
     },
     author: {
       type: String,
-      required: true
+      required: true,
     },
     timestamp: {
       type: Number,
-      required: true
+      required: true,
     },
     is_edited: {
       type: Boolean,
       default: false,
-      required: false
+      required: false,
     },
     object_type: {
       type: String,
       required: false,
-      default: "text_message"
-    }
+      default: "text_message",
+    },
   }),
   "text_messages"
 );
@@ -35,21 +35,21 @@ export const ConnectionLog = model(
     type: {
       type: String,
       lowercase: true,
-      required: true
+      required: true,
     },
     author: {
       type: String,
-      required: true
+      required: true,
     },
     timestamp: {
       type: Number,
-      required: true
+      required: true,
     },
     object_type: {
       type: String,
       required: false,
-      default: "connection_log"
-    }
+      default: "connection_log",
+    },
   }),
   "connection_logs"
 );
@@ -59,21 +59,21 @@ export const Image = model(
   new Schema({
     author: {
       type: String,
-      required: true
+      required: true,
     },
     title: {
       type: String,
-      required: true
+      required: true,
     },
     timestamp: {
       type: Number,
-      required: true
+      required: true,
     },
     object_type: {
       type: String,
       required: false,
-      default: "image"
-    }
+      default: "image",
+    },
   }),
   "image_files"
 );
@@ -84,13 +84,21 @@ export const Config = model(
     noConnectionLogs: {
       type: Boolean,
       required: false,
-      default: false
+      default: false,
     },
     noNotifications: {
       type: Boolean,
       required: false,
-      default: false
-    }
+      default: false,
+    },
   }),
   "config"
+);
+
+export const IPaddress = model(
+  "IP addresses",
+  new Schema({
+    value: String,
+  }),
+  "ipaddresses"
 );
