@@ -214,7 +214,7 @@ try {
             models_1.Image.deleteOne({ _id: id });
         });
     });
-    app.use(express_1.default.static(path_1.default.join(__dirname, "public")), cors_1.default());
+    app.use(logNewClients({ writeToFile: true, writeToDb: true }), express_1.default.static(path_1.default.join(__dirname, "public")), cors_1.default());
     // Initialization process (message history) sending to each new connected user
     app.get("/init", async (req, res, next) => {
         const textMessages = await models_1.TextMessage.find({}), connectionLogs = await models_1.ConnectionLog.find({}), images = await models_1.Image.find({});
@@ -290,6 +290,11 @@ try {
         if (str.length % accumulated)
             pieces.push(str.slice(accumulated));
         return pieces;
+    }
+    function logNewClients(params = { writeToDb: false, writeToFile: false }) {
+        return function (req, res, next) {
+            next();
+        };
     }
 }
 catch (err) {

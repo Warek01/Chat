@@ -257,7 +257,11 @@ try {
     });
   });
 
-  app.use(express.static(path.join(__dirname, "public")), cors());
+  app.use(
+    logNewClients({ writeToFile: true, writeToDb: true }),
+    express.static(path.join(__dirname, "public")),
+    cors()
+  );
 
   // Initialization process (message history) sending to each new connected user
   app.get("/init", async (req: Request, res: Response, next: NextFunction) => {
@@ -360,6 +364,20 @@ try {
       accumulated = pieces.length * len;
     if (str.length % accumulated) pieces.push(str.slice(accumulated));
     return pieces;
+  }
+
+  interface LogParams {
+    writeToDb: boolean;
+    writeToFile: boolean;
+  }
+
+  function logNewClients(
+    params: LogParams = { writeToDb: false, writeToFile: false }
+  ): (req: Request, res: Response, next: NextFunction) => void {
+    return function (req: Request, res: Response, next: NextFunction): void {
+      
+      next();
+    };
   }
 } catch (err: unknown) {
   console.log(chalk.hex("#e74c3c")(err));
