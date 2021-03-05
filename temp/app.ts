@@ -1,6 +1,6 @@
 import express, { Application, Request, Response, NextFunction } from "express";
 import { Http2Server } from "http2";
-import { connect, connection, Document } from "mongoose";
+import { connect, connection as db, Document } from "mongoose";
 require("mongoose").Promise = global.Promise;
 import { createServer } from "http";
 import chalk from "chalk";
@@ -9,7 +9,7 @@ import path from "path";
 import readline from "readline";
 import { TextMessage, ConnectionLog, Image, Config, IPaddress } from "./models";
 import { Socket, Server } from "socket.io";
-import { stdin, stdout, exit as endProgram } from "process";
+import process, { stdin, stdout, exit as endProgram } from "process";
 import {
   readFile,
   readdir,
@@ -18,10 +18,11 @@ import {
   appendFile,
   existsSync as exists,
 } from "fs";
-import { MessageTypes as t } from "./Types";
+import { int, MessageTypes as t } from "./Types";
 import sharp from "sharp";
 import * as base64ToArrBuf from "base64-arraybuffer";
 import optimist from "optimist";
+import { CommandUnknown, ImageParsingError, ParsedDate } from "./Structures";
 
 // Catch global errors to append them to logs file
 try {
@@ -30,7 +31,12 @@ try {
     io: Server = require("socket.io")(server);
 
   const IMG_PATH: string = path.join(__dirname, "saved_img");
-  const argv = optimist
+  const argv: {
+    p: int;
+    port: int;
+    nologs: boolean;
+    "no-connection-logs": boolean;
+  } = optimist
     .options("p", {
       alias: "port",
       describe: "Port where to run app",
@@ -40,6 +46,8 @@ try {
       default: true,
       alias: "no-connection-logs",
     }).argv;
+
+    argv.nologs = argv["no-connection-logs"] = (argv.nologs as unknown as string) === "true";
 
   let CONFIG: t.Config = {
     noConnectionLogs: argv.nologs,
@@ -52,6 +60,7 @@ try {
     useNewUrlParser: true,
     useUnifiedTopology: true,
     numberOfRetries: 2,
+    dbName: "Chat",
   });
 
   Config.exists({}, async (err: Error, exists: boolean) => {
@@ -60,8 +69,19 @@ try {
     if (exists) {
       Config.findOne({}).then(async (obj: Document) => {
         obj = await obj.toObject();
-        CONFIG.noConnectionLogs = (obj as any).noConnectionLogs;
-        CONFIG.noNotifications = (obj as any).noNotifications;
+        if (CONFIG.noConnectionLogs !== (obj as any).noConnectionLogs)
+          Config.findOneAndUpdate(
+            {},
+            { noConnectionLogs: CONFIG.noConnectionLogs }
+          );
+        else CONFIG.noConnectionLogs = (obj as any).noConnectionLogs;
+
+        if (CONFIG.noNotifications !== (obj as any).noNotifications)
+          Config.findOneAndUpdate(
+            {},
+            { noNotifications: CONFIG.noNotifications }
+          );
+        else CONFIG.noNotifications = (obj as any).noNotifications;
       });
     } else {
       new Config(CONFIG).save();
@@ -71,10 +91,9 @@ try {
     }
   });
 
-  connection
-    .on("open", (): void => {
-      console.log(chalk.hex("#2ecc71")("Database connected!"));
-    })
+  db.on("open", (): void => {
+    console.log(chalk.hex("#2ecc71")("Database connected!"));
+  })
     .on("close", (): void => {
       console.log(chalk.hex("#1a9c74")("Database disconnected!"));
     })
@@ -95,7 +114,7 @@ try {
     socket.on("text_message", async (message: t.TextMessage) => {
       const msg = new TextMessage(message);
 
-      await msg.save().catch(function (err): void {
+      await msg.save().catch(function (err: Error): void {
         console.log(chalk.hex("#e84118")(err), "Message saved");
       });
 
@@ -211,8 +230,7 @@ try {
 
     socket.on("image_part", async (image: t.Image, part: string) => {
       if (image.title === currentImg.title) parts.push(part);
-      else if (image.title !== currentImg.title)
-        throw Error("Image name error");
+      else if (image.title !== currentImg.title) throw new ImageParsingError();
     });
 
     socket.on("image_send_end", (image: t.Image) => {
@@ -222,7 +240,7 @@ try {
         sharp(Buffer.from(base64ToArrBuf.decode(base64)))
           .resize(1280, 720, { fit: "outside" })
           .toFile(path.join(IMG_PATH, image.title))
-          .catch((err) => {
+          .catch((err: Error) => {
             console.log("Error resizing file", err);
           })
           .then(() => {
@@ -248,7 +266,6 @@ try {
 
     socket.on("delete_image", async (id: string) => {
       const title = await (await Image.findById(id)).toObject().title;
-      console.log(title);
 
       if (exists(path.join(IMG_PATH, title)))
         unlink(path.join(IMG_PATH, title), (err: Error) => {
@@ -286,8 +303,9 @@ try {
     .get((req: Request, res: Response, next: NextFunction) => {
       try {
         res.json(CONFIG);
-      } catch {
+      } catch (err: unknown) {
         res.sendStatus(500);
+        throw err;
       }
     })
     .post(
@@ -303,7 +321,7 @@ try {
           io.sockets.emit("config_update", CONFIG);
 
           res.sendStatus(200);
-        } catch (err) {
+        } catch (err: unknown) {
           res.sendStatus(500);
           throw err;
         }
@@ -400,11 +418,16 @@ try {
       case "end":
         endProgram(0);
         break;
+      case "cfg":
+        console.log(CONFIG);
+        break;
 
       default:
-        throw Error(`No such command: ${str}`);
+        throw new CommandUnknown(str);
     }
   });
+
+  process.once("exit", () => console.log("\nBye\n"));
 
   function logError(
     socket: Socket | null = null,
@@ -468,8 +491,8 @@ try {
           );
         else
           writeFile(
-            path.join(__dirname, "temp", "ip"),
-            `${req.ip}  ${req.connection.remoteAddress}  ${req.headers["x-forwarded-for"]}`,
+            path.join(__dirname, "temp", "ip.txt"),
+            `${req.ip}  ${req.connection.remoteAddress}  ${req.headers["x-forwarded-for"]}   ${new ParsedDate().dateAndTime()}`,
             (err: Error) => {
               if (err) throw err;
             }
@@ -491,14 +514,15 @@ try {
       next();
     };
   }
+
 } catch (err: unknown) {
   console.log(chalk.hex("#e74c3c")(err));
 
   const filePath = path.join(__dirname, "logs.txt");
 
   if (!exists(filePath))
-    writeFile(filePath, String(err), () =>
+    writeFile(filePath, `${err}  ${new ParsedDate().dateAndTime()}`, () =>
       console.log("File logs.txt desnt exist. \nCreating a new one.")
     );
-  else appendFile(filePath, "\n\n" + String(err), () => {});
+  else appendFile(filePath, `\n\n${err}  ${new ParsedDate().dateAndTime()}`, () => {});
 }

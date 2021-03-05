@@ -31,11 +31,12 @@ const cors_1 = __importDefault(require("cors"));
 const path_1 = __importDefault(require("path"));
 const readline_1 = __importDefault(require("readline"));
 const models_1 = require("./models");
-const process_1 = require("process");
+const process_1 = __importStar(require("process"));
 const fs_1 = require("fs");
 const sharp_1 = __importDefault(require("sharp"));
 const base64ToArrBuf = __importStar(require("base64-arraybuffer"));
 const optimist_1 = __importDefault(require("optimist"));
+const Structures_1 = require("./Structures");
 // Catch global errors to append them to logs file
 try {
     const app = express_1.default(), server = http_1.createServer(app), io = require("socket.io")(server);
@@ -50,6 +51,7 @@ try {
         default: true,
         alias: "no-connection-logs",
     }).argv;
+    argv.nologs = argv["no-connection-logs"] = argv.nologs === "true";
     let CONFIG = {
         noConnectionLogs: argv.nologs,
         noNotifications: false,
@@ -60,6 +62,7 @@ try {
         useNewUrlParser: true,
         useUnifiedTopology: true,
         numberOfRetries: 2,
+        dbName: "Chat",
     });
     models_1.Config.exists({}, async (err, exists) => {
         if (err)
@@ -67,8 +70,14 @@ try {
         if (exists) {
             models_1.Config.findOne({}).then(async (obj) => {
                 obj = await obj.toObject();
-                CONFIG.noConnectionLogs = obj.noConnectionLogs;
-                CONFIG.noNotifications = obj.noNotifications;
+                if (CONFIG.noConnectionLogs !== obj.noConnectionLogs)
+                    models_1.Config.findOneAndUpdate({}, { noConnectionLogs: CONFIG.noConnectionLogs });
+                else
+                    CONFIG.noConnectionLogs = obj.noConnectionLogs;
+                if (CONFIG.noNotifications !== obj.noNotifications)
+                    models_1.Config.findOneAndUpdate({}, { noNotifications: CONFIG.noNotifications });
+                else
+                    CONFIG.noNotifications = obj.noNotifications;
             });
         }
         else {
@@ -76,8 +85,7 @@ try {
             console.log(chalk_1.default.hex("#f1c40f")("Config document not found. \nCreating a new one"));
         }
     });
-    mongoose_1.connection
-        .on("open", () => {
+    mongoose_1.connection.on("open", () => {
         console.log(chalk_1.default.hex("#2ecc71")("Database connected!"));
     })
         .on("close", () => {
@@ -179,7 +187,7 @@ try {
             if (image.title === currentImg.title)
                 parts.push(part);
             else if (image.title !== currentImg.title)
-                throw Error("Image name error");
+                throw new Structures_1.ImageParsingError();
         });
         socket.on("image_send_end", (image) => {
             if (imageProcessing && currentImg.title) {
@@ -207,7 +215,6 @@ try {
         });
         socket.on("delete_image", async (id) => {
             const title = await (await models_1.Image.findById(id)).toObject().title;
-            console.log(title);
             if (fs_1.existsSync(path_1.default.join(IMG_PATH, title)))
                 fs_1.unlink(path_1.default.join(IMG_PATH, title), (err) => {
                     if (err)
@@ -230,8 +237,9 @@ try {
         try {
             res.json(CONFIG);
         }
-        catch {
+        catch (err) {
             res.sendStatus(500);
+            throw err;
         }
     })
         .post(express_1.default.text({ defaultCharset: "utf-8" }), async (req, res, next) => {
@@ -329,10 +337,14 @@ try {
             case "end":
                 process_1.exit(0);
                 break;
+            case "cfg":
+                console.log(CONFIG);
+                break;
             default:
-                throw Error(`No such command: ${str}`);
+                throw new Structures_1.CommandUnknown(str);
         }
     });
+    process_1.default.once("exit", () => console.log("\nBye\n"));
     function logError(socket = null, message = null) {
         return function (err) {
             console.log(message ? chalk_1.default.hex("#f0932b")(message + ": ") : "", chalk_1.default.hex("#e84118")(err));
@@ -371,7 +383,7 @@ try {
                             throw err;
                     });
                 else
-                    fs_1.writeFile(path_1.default.join(__dirname, "temp", "ip"), `${req.ip}  ${req.connection.remoteAddress}  ${req.headers["x-forwarded-for"]}`, (err) => {
+                    fs_1.writeFile(path_1.default.join(__dirname, "temp", "ip.txt"), `${req.ip}  ${req.connection.remoteAddress}  ${req.headers["x-forwarded-for"]}   ${new Structures_1.ParsedDate().dateAndTime()}`, (err) => {
                         if (err)
                             throw err;
                     });
@@ -394,7 +406,7 @@ catch (err) {
     console.log(chalk_1.default.hex("#e74c3c")(err));
     const filePath = path_1.default.join(__dirname, "logs.txt");
     if (!fs_1.existsSync(filePath))
-        fs_1.writeFile(filePath, String(err), () => console.log("File logs.txt desnt exist. \nCreating a new one."));
+        fs_1.writeFile(filePath, `${err}  ${new Structures_1.ParsedDate().dateAndTime()}`, () => console.log("File logs.txt desnt exist. \nCreating a new one."));
     else
-        fs_1.appendFile(filePath, "\n\n" + String(err), () => { });
+        fs_1.appendFile(filePath, `\n\n${err}  ${new Structures_1.ParsedDate().dateAndTime()}`, () => { });
 }
