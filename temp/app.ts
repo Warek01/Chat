@@ -1,25 +1,28 @@
 import express, { Application, Request, Response, NextFunction } from "express";
 import { Http2Server } from "http2";
-import { connect, connection, Document } from "mongoose";
+import { connect, connection as db, Document } from "mongoose";
 require("mongoose").Promise = global.Promise;
 import { createServer } from "http";
 import chalk from "chalk";
 import cors from "cors";
 import path from "path";
-import { TextMessage, ConnectionLog, Image, Config } from "./models";
+import readline from "readline";
+import { TextMessage, ConnectionLog, Image, Config, IPaddress } from "./models";
 import { Socket, Server } from "socket.io";
+import process, { stdin, stdout, exit as endProgram } from "process";
 import {
   readFile,
   readdir,
   unlink,
   writeFile,
   appendFile,
-  existsSync as exists
+  existsSync as exists,
 } from "fs";
-import { MessageTypes as t } from "./Types";
+import { int, MessageTypes as t } from "./Types";
 import sharp from "sharp";
 import * as base64ToArrBuf from "base64-arraybuffer";
 import optimist from "optimist";
+import { CommandUnknown, ImageParsingError, ParsedDate } from "./Structures";
 
 // Catch global errors to append them to logs file
 try {
@@ -28,20 +31,27 @@ try {
     io: Server = require("socket.io")(server);
 
   const IMG_PATH: string = path.join(__dirname, "saved_img");
-  const argv = optimist
+  const argv: {
+    p: int;
+    port: int;
+    nologs: boolean;
+    "no-connection-logs": boolean;
+  } = optimist
     .options("p", {
       alias: "port",
       describe: "Port where to run app",
-      default: 8000
+      default: 8000,
     })
     .options("nologs", {
       default: true,
-      alias: "no-connection-logs"
+      alias: "no-connection-logs",
     }).argv;
+
+    argv.nologs = argv["no-connection-logs"] = (argv.nologs as unknown as string) === "true";
 
   let CONFIG: t.Config = {
     noConnectionLogs: argv.nologs,
-    noNotifications: false
+    noNotifications: false,
   };
 
   // Open mongodb connection
@@ -49,7 +59,8 @@ try {
     useFindAndModify: true,
     useNewUrlParser: true,
     useUnifiedTopology: true,
-    numberOfRetries: 2
+    numberOfRetries: 2,
+    dbName: "Chat",
   });
 
   Config.exists({}, async (err: Error, exists: boolean) => {
@@ -58,8 +69,19 @@ try {
     if (exists) {
       Config.findOne({}).then(async (obj: Document) => {
         obj = await obj.toObject();
-        CONFIG.noConnectionLogs = (obj as any).noConnectionLogs;
-        CONFIG.noNotifications = (obj as any).noNotifications;
+        if (CONFIG.noConnectionLogs !== (obj as any).noConnectionLogs)
+          Config.findOneAndUpdate(
+            {},
+            { noConnectionLogs: CONFIG.noConnectionLogs }
+          );
+        else CONFIG.noConnectionLogs = (obj as any).noConnectionLogs;
+
+        if (CONFIG.noNotifications !== (obj as any).noNotifications)
+          Config.findOneAndUpdate(
+            {},
+            { noNotifications: CONFIG.noNotifications }
+          );
+        else CONFIG.noNotifications = (obj as any).noNotifications;
       });
     } else {
       new Config(CONFIG).save();
@@ -69,14 +91,14 @@ try {
     }
   });
 
-  connection
+  db
     .on("open", () => {
       console.log(chalk.hex("#2ecc71")("Database connected!"));
     })
     .on("close", () => {
       console.log(chalk.hex("#1a9c74")("Database disconnected!"));
     })
-    .on("error", err => {
+    .on("error", (err) => {
       console.log(chalk.hex("#e84118")("Database Error: "), err);
     });
 
@@ -85,7 +107,7 @@ try {
   io.on("connection", (socket: Socket): void => {
     console.log(chalk.hex("#95a5a6")("Client connected!"));
 
-    socket.on("error", err => {
+    socket.on("error", (err) => {
       console.log("Socket error");
       console.log(chalk.hex("#e84118")(err));
     });
@@ -93,7 +115,7 @@ try {
     socket.on("text_message", async (message: t.TextMessage) => {
       const msg = new TextMessage(message);
 
-      await msg.save().catch(function (err): void {
+      await msg.save().catch(function (err: Error): void {
         console.log(chalk.hex("#e84118")(err), "Message saved");
       });
 
@@ -111,14 +133,15 @@ try {
     });
 
     socket.on("clear_history", async () => {
-      readdir(IMG_PATH, (err: Error, files: string[]) => {
-        if (err) throw err;
+      if (exists(IMG_PATH))
+        readdir(IMG_PATH, (err: Error, files: string[]) => {
+          if (err) throw err;
 
-        for (const fileName of files)
-          unlink(path.join(IMG_PATH, fileName), err => {
-            if (err) console.log(err);
-          });
-      });
+          for (const fileName of files)
+            unlink(path.join(IMG_PATH, fileName), (err) => {
+              if (err) console.log(err);
+            });
+        });
 
       await TextMessage.deleteMany({}).catch(
         logError(socket, "Clear History, Text Messages")
@@ -208,8 +231,7 @@ try {
 
     socket.on("image_part", async (image: t.Image, part: string) => {
       if (image.title === currentImg.title) parts.push(part);
-      else if (image.title !== currentImg.title)
-        throw Error("Image name error");
+      else if (image.title !== currentImg.title) throw new ImageParsingError();
     });
 
     socket.on("image_send_end", (image: t.Image) => {
@@ -219,7 +241,7 @@ try {
         sharp(Buffer.from(base64ToArrBuf.decode(base64)))
           .resize(1280, 720, { fit: "outside" })
           .toFile(path.join(IMG_PATH, image.title))
-          .catch(err => {
+          .catch((err: Error) => {
             console.log("Error resizing file", err);
           })
           .then(() => {
@@ -245,7 +267,6 @@ try {
 
     socket.on("delete_image", async (id: string) => {
       const title = await (await Image.findById(id)).toObject().title;
-      console.log(title);
 
       if (exists(path.join(IMG_PATH, title)))
         unlink(path.join(IMG_PATH, title), (err: Error) => {
@@ -277,8 +298,9 @@ try {
     .get((req: Request, res: Response, next: NextFunction) => {
       try {
         res.json(CONFIG);
-      } catch {
+      } catch (err: unknown) {
         res.sendStatus(500);
+        throw err;
       }
     })
     .post(
@@ -294,7 +316,7 @@ try {
           io.sockets.emit("config_update", CONFIG);
 
           res.sendStatus(200);
-        } catch (err) {
+        } catch (err: unknown) {
           res.sendStatus(500);
           throw err;
         }
@@ -318,7 +340,94 @@ try {
     console.log(`App started on port ${argv.port}`);
   });
 
-  function logError(socket: Socket = null, message: string = null) {
+  const rl = readline.createInterface({ input: stdin, output: stdout });
+  rl.on("line", (str: string) => {
+    switch (str) {
+      case "":
+        return;
+      case "\n":
+        return;
+      case "cl-ip":
+        IPaddress.deleteMany({}).then(() =>
+          console.log(chalk.hex("#718093")("Addresses removed from db"))
+        );
+
+        if (exists(path.join(__dirname, "temp", "ip")))
+          unlink(path.join(__dirname, "temp", "ip"), (err: Error) => {
+            if (err) throw err;
+          });
+        break;
+      case "cl-msg":
+        TextMessage.deleteMany({}).then(() =>
+          console.log(chalk.hex("#718093")("Text messages removed from db"))
+        );
+        break;
+      case "cl-img":
+        if (exists(IMG_PATH))
+          readdir(IMG_PATH, (err: Error, files: string[]) => {
+            if (err) throw err;
+
+            for (const fileName of files)
+              unlink(path.join(IMG_PATH, fileName), (err) => {
+                if (err) console.log(err);
+              });
+          });
+
+        Image.deleteMany({}).then(() =>
+          console.log(chalk.hex("#718093")("Images removed from db"))
+        );
+        break;
+      case "cl-logs":
+        if (exists(path.join(__dirname, "logs.txt"))) {
+          unlink(path.join(__dirname, "logs.txt"), (err: Error) => {
+            if (err) throw err;
+          });
+
+          console.log("All logs removed");
+        } else console.log(chalk.hex("#718093")("No logs available"));
+        break;
+      case "cl-cnlogs":
+        ConnectionLog.deleteMany({}).then(() =>
+          console.log(chalk.hex("#718093")("Connection logs removed from db"))
+        );
+        break;
+
+      case "cl-all":
+        if (exists(IMG_PATH))
+          readdir(IMG_PATH, (err: Error, files: string[]) => {
+            if (err) throw err;
+
+            for (const fileName of files)
+              unlink(path.join(IMG_PATH, fileName), (err) => {
+                if (err) console.log(err);
+              });
+          });
+
+        ConnectionLog.deleteMany({});
+        Image.deleteMany({});
+        TextMessage.deleteMany({});
+
+        console.log(chalk.hex("#718093")("History cleared"));
+
+        break;
+      case "end":
+        endProgram(0);
+        break;
+      case "cfg":
+        console.log(CONFIG);
+        break;
+
+      default:
+        throw new CommandUnknown(str);
+    }
+  });
+
+  process.once("exit", () => console.log("\nBye\n"));
+
+  function logError(
+    socket: Socket | null = null,
+    message: string | null = null
+  ) {
     return function (err: Error): void {
       console.log(
         message ? chalk.hex("#f0932b")(message + ": ") : "",
@@ -365,17 +474,49 @@ try {
     params: LogParams = { writeToDb: false, writeToFile: false }
   ): (req: Request, res: Response, next: NextFunction) => void {
     return function (req: Request, res: Response, next: NextFunction): void {
+      if (params.writeToFile)
+        if (exists(path.join(__dirname, "temp", "ip")))
+          appendFile(
+            path.join(__dirname, "temp", "ip"),
+            `\n\n${req.ip}  ${req.connection.remoteAddress}  ${req.headers["x-forwarded-for"]}`,
+            (err: Error) => {
+              if (err) throw err;
+            }
+          );
+        else
+          writeFile(
+            path.join(__dirname, "temp", "ip.txt"),
+            `${req.ip}  ${req.connection.remoteAddress}  ${req.headers["x-forwarded-for"]}   ${new ParsedDate().dateAndTime()}`,
+            (err: Error) => {
+              if (err) throw err;
+            }
+          );
+
+      if (params.writeToDb)
+        IPaddress.exists(
+          {
+            value: `${req.ip}  ${req.connection.remoteAddress}  ${req.headers["x-forwarded-for"]}`,
+          },
+          (err: Error, res: boolean) => {
+            if (err) throw err;
+            if (!exists)
+              new IPaddress({
+                value: `${req.ip}  ${req.connection.remoteAddress}  ${req.headers["x-forwarded-for"]}`,
+              } as t.IPaddress).save();
+          }
+        );
       next();
     };
   }
+
 } catch (err: unknown) {
   console.log(chalk.hex("#e74c3c")(err));
 
   const filePath = path.join(__dirname, "logs.txt");
 
   if (!exists(filePath))
-    writeFile(filePath, String(err), () =>
+    writeFile(filePath, `${err}  ${new ParsedDate().dateAndTime()}`, () =>
       console.log("File logs.txt desnt exist. \nCreating a new one.")
     );
-  else appendFile(filePath, "\n\n" + String(err), () => {});
+  else appendFile(filePath, `\n\n${err}  ${new ParsedDate().dateAndTime()}`, () => {});
 }
