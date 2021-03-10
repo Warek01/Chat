@@ -5,7 +5,7 @@ let currentUser = null, previousUser = null, contextMenu = null, lostFocus = fal
     noConnectionLogs: false,
     noNotifications: false
 };
-let imageSettings = {
+const imageSettings = {
     transition: false,
     parts: [],
     title: null,
@@ -405,7 +405,7 @@ function sendMessage() {
 async function init() {
     clearMsgHistory(false);
     let req = await fetch("/init"), res = await req.json();
-    for (let em of res) {
+    for (let em of res)
         switch (em.object_type) {
             case "text_message":
                 createTextMsg(em);
@@ -417,14 +417,13 @@ async function init() {
                 createImgMsg(em);
                 break;
         }
-    }
 }
 // https://stackoverflow.com/questions/8667070/javascript-regular-expression-to-validate-url
 function validateUrl(value) {
     return /^(?:(?:(?:https?|ftp):)?\/\/)(?:\S+(?::\S*)?@)?(?:(?!(?:10|127)(?:\.\d{1,3}){3})(?!(?:169\.254|192\.168)(?:\.\d{1,3}){2})(?!172\.(?:1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2})(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])(?:\.(?:1?\d{1,2}|2[0-4]\d|25[0-5])){2}(?:\.(?:[1-9]\d?|1\d\d|2[0-4]\d|25[0-4]))|(?:(?:[a-z\u00a1-\uffff0-9]-*)*[a-z\u00a1-\uffff0-9]+)(?:\.(?:[a-z\u00a1-\uffff0-9]-*)*[a-z\u00a1-\uffff0-9]+)*(?:\.(?:[a-z\u00a1-\uffff]{2,})))(?::\d{2,5})?(?:[/?#]\S*)?$/i.test(value);
 }
 function replaceWithAnchor(content) {
-    let exp_match = /(\b(https?|):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|\\])/gi, element_content = content.replace(exp_match, "<a href='$1'>$1</a>"), new_exp_match = /(^|[^\/])(www\.[\S]+(\b|$))/gim, new_content = element_content.replace(new_exp_match, '$1<a target="_blank" href="http://$2">$2</a>');
+    const exp_match = /(\b(https?|):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|\\])/gi, element_content = content.replace(exp_match, "<a href='$1'>$1</a>"), new_exp_match = /(^|[^\/])(www\.[\S]+(\b|$))/gim, new_content = element_content.replace(new_exp_match, '$1<a target="_blank" href="http://$2">$2</a>');
     return new_content;
 }
 function findMessage(id) {
@@ -515,9 +514,8 @@ function createImgMsg(image, src, noDownload) {
     downloadBtn
         .click(function (event) {
         try {
-            if (imageSettings.transition) {
+            if (imageSettings.transition)
                 downloadQueue.push($(this));
-            }
             imageSettings.transition = true;
             const target = $(event.target);
             let id;

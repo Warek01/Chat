@@ -70,10 +70,10 @@ try {
   });
 
   connection
-    .on("open", (): void => {
+    .on("open", () => {
       console.log(chalk.hex("#2ecc71")("Database connected!"));
     })
-    .on("close", (): void => {
+    .on("close", () => {
       console.log(chalk.hex("#1a9c74")("Database disconnected!"));
     })
     .on("error", err => {
@@ -141,7 +141,7 @@ try {
     socket.on("message_edit", async (id: string, content: string) => {
       await TextMessage.findByIdAndUpdate(id, {
         content: content,
-        edited: true
+        is_edited: true
       }).catch(logError(socket, "Message Edit"));
 
       io.sockets.emit("message_edit", id, content);
@@ -269,13 +269,7 @@ try {
       connectionLogs: Document[] = await ConnectionLog.find({}),
       images: Document[] = await Image.find({});
 
-    let sorted: (
-      | t.TextMessage
-      | t.Image
-      | t.ConnectionLog
-    )[] = sortByTimestamp([textMessages, connectionLogs, images]);
-
-    res.json(sorted);
+    res.json(sortByTimestamp(...textMessages, ...connectionLogs, ...images));
   });
 
   app
@@ -324,10 +318,7 @@ try {
     console.log(`App started on port ${argv.port}`);
   });
 
-  function logError(
-    socket: Socket | null = null,
-    message: string | null = null
-  ) {
+  function logError(socket: Socket = null, message: string = null) {
     return function (err: Error): void {
       console.log(
         message ? chalk.hex("#f0932b")(message + ": ") : "",
@@ -338,17 +329,16 @@ try {
   }
 
   function sortByTimestamp(
-    arrays: Document[][]
+    ...elements: Document[]
   ): (t.TextMessage | t.Image | t.ConnectionLog)[] {
-    let allElements: (t.TextMessage | t.Image | t.ConnectionLog)[] = [];
+    const allElements: (t.TextMessage | t.Image | t.ConnectionLog)[] = [];
 
-    for (let arr of arrays)
-      for (let element of arr) allElements.push(element.toObject());
+    for (const element of elements) allElements.push(element.toObject());
 
     for (let i = 0; i < allElements.length; i++)
       for (let j = i + 1; j < allElements.length; j++)
         if (allElements[i].timestamp > allElements[j].timestamp) {
-          let temp = allElements[i];
+          const temp = allElements[i];
           allElements[i] = allElements[j];
           allElements[j] = temp;
         }
@@ -359,7 +349,7 @@ try {
   function splitToLength(str: string, len: number) {
     if (len > str.length) len = str.length;
 
-    let range = new RegExp(`.{${len}}`, "g"),
+    const range = new RegExp(`.{${len}}`, "g"),
       pieces = str.match(range),
       accumulated = pieces.length * len;
     if (str.length % accumulated) pieces.push(str.slice(accumulated));
@@ -375,7 +365,6 @@ try {
     params: LogParams = { writeToDb: false, writeToFile: false }
   ): (req: Request, res: Response, next: NextFunction) => void {
     return function (req: Request, res: Response, next: NextFunction): void {
-      
       next();
     };
   }

@@ -129,7 +129,7 @@ try {
         socket.on("message_edit", async (id, content) => {
             await models_1.TextMessage.findByIdAndUpdate(id, {
                 content: content,
-                edited: true
+                is_edited: true
             }).catch(logError(socket, "Message Edit"));
             io.sockets.emit("message_edit", id, content);
         });
@@ -218,8 +218,7 @@ try {
     // Initialization process (message history) sending to each new connected user
     app.get("/init", async (req, res, next) => {
         const textMessages = await models_1.TextMessage.find({}), connectionLogs = await models_1.ConnectionLog.find({}), images = await models_1.Image.find({});
-        let sorted = sortByTimestamp([textMessages, connectionLogs, images]);
-        res.json(sorted);
+        res.json(sortByTimestamp(...textMessages, ...connectionLogs, ...images));
     });
     app
         .route("/config")
@@ -269,15 +268,14 @@ try {
                 socket.emit("error", err, message);
         };
     }
-    function sortByTimestamp(arrays) {
-        let allElements = [];
-        for (let arr of arrays)
-            for (let element of arr)
-                allElements.push(element.toObject());
+    function sortByTimestamp(...elements) {
+        const allElements = [];
+        for (const element of elements)
+            allElements.push(element.toObject());
         for (let i = 0; i < allElements.length; i++)
             for (let j = i + 1; j < allElements.length; j++)
                 if (allElements[i].timestamp > allElements[j].timestamp) {
-                    let temp = allElements[i];
+                    const temp = allElements[i];
                     allElements[i] = allElements[j];
                     allElements[j] = temp;
                 }
@@ -286,7 +284,7 @@ try {
     function splitToLength(str, len) {
         if (len > str.length)
             len = str.length;
-        let range = new RegExp(`.{${len}}`, "g"), pieces = str.match(range), accumulated = pieces.length * len;
+        const range = new RegExp(`.{${len}}`, "g"), pieces = str.match(range), accumulated = pieces.length * len;
         if (str.length % accumulated)
             pieces.push(str.slice(accumulated));
         return pieces;

@@ -1,6 +1,6 @@
 import { MessageTypes as t, int, Socket } from "../Types";
 
-const global: any = window;
+const global = (window as any) as Window & any;
 const APP_TITLE = "Chat app";
 
 const login_form = $("#login-wrapper"),
@@ -33,14 +33,7 @@ let currentUser: string = null,
     noNotifications: false
   };
 
-let imageSettings: {
-    transition: boolean;
-    parts: string[];
-    title: string;
-    id: string;
-    element: JQuery;
-    reset(): void;
-  } = {
+const imageSettings = {
     transition: false,
     parts: [],
     title: null,
@@ -509,7 +502,7 @@ async function init(): Promise<any> {
   let req: Response = await fetch("/init"),
     res: (t.TextMessage | t.ConnectionLog | t.Image)[] = await req.json();
 
-  for (let em of res) {
+  for (let em of res)
     switch (em.object_type) {
       case "text_message":
         createTextMsg(em as t.TextMessage);
@@ -521,7 +514,6 @@ async function init(): Promise<any> {
         createImgMsg(em);
         break;
     }
-  }
 }
 
 // https://stackoverflow.com/questions/8667070/javascript-regular-expression-to-validate-url
@@ -532,7 +524,7 @@ function validateUrl(value: string): boolean {
 }
 
 function replaceWithAnchor(content: string) {
-  let exp_match = /(\b(https?|):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|\\])/gi,
+  const exp_match = /(\b(https?|):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|\\])/gi,
     element_content = content.replace(exp_match, "<a href='$1'>$1</a>"),
     new_exp_match = /(^|[^\/])(www\.[\S]+(\b|$))/gim,
     new_content = element_content.replace(
@@ -662,9 +654,7 @@ function createImgMsg(
   downloadBtn
     .click(function (event): void {
       try {
-        if (imageSettings.transition) {
-          downloadQueue.push($(this));
-        }
+        if (imageSettings.transition) downloadQueue.push($(this));
 
         imageSettings.transition = true;
         const target = $(event.target);
